@@ -75,7 +75,7 @@
 
   <section class="alert">
     <span class="tag">核心約束 · 熱</span>
-    <p><strong>熱電偶聯鎖門檻是 80 °C 觸發 / 60 °C 解除</strong>，代表爐面常態運作就在 60–80 °C。
+    <p><strong>熱電偶聯鎖門檻是 150 °C 觸發 / 130 °C 解除</strong>（2026-08-02 由 80/60 調高，臨時值待實測）。熱電偶懸於爐面上方 2–3 cm，該處<strong>預估 120 °C</strong>，燃燒艙外殼會接近這個溫度。
        PLA 的熱變形溫度只有 55–60 °C——<strong>燃燒艙若用 PLA 列印會軟化變形</strong>。</p>
     <p style="margin-bottom:0">因此整個設計圍繞一件事：<strong>不讓塑膠靠近熱源</strong>。
        燃燒由金屬爐盆承接，爐盆與塑膠之間留 8 mm 空氣間隙（空氣是最好的絕熱材），
@@ -128,12 +128,14 @@
           <text x="240" y="296" fill="var(--air)" font-size="10" font-weight="700">空氣間隙</text>
           <text x="248" y="309" fill="var(--air)" font-size="10">8 mm</text>
           <text x="660" y="250" fill="var(--hot)" font-weight="700">燃燒艙 chamber</text>
-          <text x="660" y="265" fill="var(--ink3)" font-size="10">60–80 °C</text>
+          <text x="660" y="265" fill="var(--ink3)" font-size="10">預估 120 °C</text>
 
           <!-- 熱電偶 -->
           <path d="M329,340 L300,340 L300,398" stroke="var(--hot)" stroke-width="2" fill="none"/>
           <circle cx="329" cy="340" r="4" fill="var(--hot)"/>
-          <text x="196" y="344" fill="var(--hot)" font-size="10">熱電偶貼爐盆外壁</text>
+          <text x="150" y="338" fill="var(--hot)" font-size="10">熱電偶（本圖：貼爐盆外壁）</text>
+          <text x="150" y="351" fill="var(--warm)" font-size="9">⚠ 交接文件 §7 為「懸於爐面上方 2-3cm」</text>
+          <text x="150" y="362" fill="var(--warm)" font-size="9">   兩者量到的溫度不同，尚待擇一</text>
 
           <!-- ══ 隔熱層 ══ -->
           <rect x="252" y="384" width="396" height="31" fill="none"

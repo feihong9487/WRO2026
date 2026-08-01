@@ -40,8 +40,8 @@ const int PIN_FAN      = 9;    // PWM → D4184 TRIG
 const int PIN_ALARM_IN = A0;   // ← S3 警報線（類比判位）
 
 // ---- 門檻（桌面測試值；燃燒艙階段再依實況調整） ----
-const float    T_LOCK        = 80.0;   // °C 聯鎖觸發
-const float    T_RELEASE     = 60.0;   // °C 聯鎖解除（遲滯）
+const float    T_LOCK        = 150.0;  // °C 聯鎖觸發（臨時值，見 matrix_mini_r4.ino 註解）
+const float    T_RELEASE     = 130.0;  // °C 聯鎖解除（臨時，遲滯 20°C）
 const uint32_t PI_TIMEOUT_MS = 5000;   // 看門狗
 const uint8_t  FALLBACK_DUTY = 80;     // Pi 失聯時的後備轉速
 

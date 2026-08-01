@@ -150,8 +150,8 @@ python3 PI5/驗證資料流.py
 
 **衝突點**
 <哪兩個（以上）的要求互相矛盾，各自出處>
-  例：韌體 T_LOCK = 80°C（matrix_mini_r4.ino:101）
-      vs 機構 TC_LOCATION_TEMP_C = 120°C（mech_params.py）
+  例：機構 PLATE_MATERIAL = PETG 耐 80°C（mech_params.py）
+      vs 熱點 TC_LOCATION_TEMP_C = 120°C（同檔）
 
 **為什麼我不自己決定**
 <屬於哪一類：安全紅線／需實測／需採購／設計取捨>

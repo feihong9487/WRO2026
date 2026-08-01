@@ -263,6 +263,39 @@ def test_安全狀態必須停止致動():
     assert INO_V["DUTY_S0"] == 0, "S0 待機應停止風扇"
 
 
+def test_韌體聯鎖門檻需與參數檔同步():
+    """
+    門檻同時存在於韌體與 mech_params，兩邊分岔會讓所有跨層檢查失去意義。
+    """
+    if not INO_V:
+        return
+    for ino_key, par_key in (("T_LOCK", "INTERLOCK_LOCK_C"),
+                             ("T_RELEASE", "INTERLOCK_RELEASE_C")):
+        a, b = INO_V.get(ino_key), getattr(P, par_key, None)
+        if a is None or b is None:
+            continue
+        assert abs(a - b) < 1e-6, (
+            f"{ino_key}：韌體 {a}°C vs mech_params.{par_key} {b}°C 不一致")
+
+
+def test_臨時安全門檻必須被標記():
+    """
+    ★防遺忘機制★
+    熱點溫度未實測時，聯鎖門檻只能是臨時值，必須以 T_LOCK_PROVISIONAL 標記。
+    這條不會擋住開發，但確保「臨時」這件事不會在報告中被寫成既成事實。
+
+    解除條件：實測熱電偶位置溫度 → 更新 NEAR_CENSER_TEMP_C
+             → 重新檢視門檻 → 兩個旗標一起改。
+    """
+    if not P.NEAR_CENSER_TEMP_MEASURED:
+        assert getattr(P, "T_LOCK_PROVISIONAL", False), (
+            "熱點溫度未實測，聯鎖門檻屬臨時值，"
+            "必須設 T_LOCK_PROVISIONAL = True 以免報告誤植為已驗證設定")
+    else:
+        assert not getattr(P, "T_LOCK_PROVISIONAL", False), (
+            "已實測熱點溫度，請重新檢視聯鎖門檻後將 T_LOCK_PROVISIONAL 改 False")
+
+
 # ═══════════════════════════════════════════════════════════════
 # 誠實一致性
 # ═══════════════════════════════════════════════════════════════
@@ -274,4 +307,8 @@ def test_列出跨層待實測項目():
         print("\n【尚未實測，報告中僅可稱設計目標】")
         for item in pending:
             print(f"  ・{item}")
+    if getattr(P, "T_LOCK_PROVISIONAL", False):
+        print(f"\n【臨時安全門檻】聯鎖 {P.INTERLOCK_LOCK_C:.0f}/"
+              f"{P.INTERLOCK_RELEASE_C:.0f}°C 未經實測驗證，"
+              f"報告不得描述為已驗證的安全設定")
     assert True

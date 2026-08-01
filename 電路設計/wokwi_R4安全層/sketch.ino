@@ -21,8 +21,8 @@
  *   2. 觀察開機前 5 秒：應顯示 mode:"FALLBACK"、fan:80（★piSeen 修正的驗證點★）
  *   3. 序列監控輸入 `FAN 220` → mode 轉 PI、LED 變亮
  *   4. 停止輸入 5 秒 → 自動回 FALLBACK、fan 80（看門狗）
- *   5. 轉電位器讓爐溫 > 80 °C → interlock:1、fan 強制 0、LED 熄、板載 LED 快閃
- *   6. 降回 < 60 °C → interlock 自動解除（遲滯）
+ *   5. 轉電位器讓爐溫 > 150 °C → interlock:1、fan 強制 0、LED 熄、板載 LED 快閃
+ *   6. 降回 < 130 °C → interlock 自動解除（遲滯）
  *   7. 按住 A0 按鈕 → alarm:1、fan 跳 255（但若同時超溫，聯鎖優先，仍為 0）
  */
 
@@ -32,8 +32,8 @@ const int PIN_FAN      = 9;   // 正式版：PWM → D4184 TRIG
 const int PIN_ALARM_IN = A0;  // 正式版：← S3 GPIO4（類比判位，不需電平轉換晶片）
 
 // ---- 門檻（與正式韌體完全相同）----
-const float    T_LOCK        = 80.0;   // °C 聯鎖觸發
-const float    T_RELEASE     = 60.0;   // °C 聯鎖解除（遲滯）
+const float    T_LOCK        = 150.0;  // °C 聯鎖觸發（臨時值，見正式韌體註解）
+const float    T_RELEASE     = 130.0;  // °C 聯鎖解除（臨時，遲滯 20°C）
 const uint32_t PI_TIMEOUT_MS = 5000;   // 看門狗
 const uint8_t  FALLBACK_DUTY = 80;     // Pi 失聯時的後備轉速
 
