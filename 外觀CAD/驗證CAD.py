@@ -88,6 +88,8 @@ def check_syntax(src):
 
     # 模組定義 vs 呼叫
     defined = set(re.findall(r"^\s*module\s+(\w+)\s*\(", body, re.M))
+    # OpenSCAD 的 function 也是可呼叫名稱（可在 module 內定義，故不限行首）
+    defined |= set(re.findall(r"\bfunction\s+(\w+)\s*\(", body))
     builtin = {
         "cube", "cylinder", "sphere", "polygon", "circle", "square", "text",
         "translate", "rotate", "scale", "mirror", "resize", "multmatrix", "color",
@@ -323,6 +325,38 @@ def check_render():
         results.append((part, simple.group(1) if simple else "?",
                         int(vols.group(1)) if vols else -1,
                         int(facets.group(1)) if facets else -1))
+
+    # ── 產生可目視的算繪圖 ──
+    # ★為什麼要出圖★ 集煙罩的投香口曾經被封死，而參數檢查與 Volumes=2
+    #   都判定通過——封起來的罩子仍是合法的單一 manifold 實體。
+    #   那個 bug 是靠剖半算繪「看」出來的。幾何對不對，最後還是要眼睛。
+    views = [
+        ("組裝",       ["-D", 'part="assembly"'],
+         ["--camera=90,90,120,55,0,25,700"]),
+        ("剖面",       ["-D", 'part="assembly"', "-D", "SECTION=true"],
+         ["--camera=90,-30,110,68,0,22,520"]),
+        ("集煙罩剖面", ["-D", 'part="hood"', "-D", "SECTION=true"],
+         ["--camera=78,-60,120,72,0,20,290"]),
+        ("列印排版",   ["-D", 'part="print_plate"'],
+         ["--camera=200,150,0,0,0,0,620"]),
+    ]
+    made = []
+    for name, dparams, cam in views:
+        out = SCAD.parent / f"_view_{name}.png"
+        cmd = [exe, "-o", win_path(out) if is_exe else str(out),
+               "--imgsize=880,660", "--colorscheme=Tomorrow", *cam, *dparams,
+               win_path(SCAD) if is_exe else str(SCAD)]
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            if out.exists():
+                made.append(out.name)
+        except Exception:
+            pass
+    if made:
+        notes.append(f"G: 已產生 {len(made)} 張算繪圖供目視檢查："
+                     + "、".join(made))
+        notes.append("G: ★算繪通過不代表設計正確★——請實際開圖看，"
+                     "尤其是開口有沒有真的通、內部結構對不對")
 
     shutil.rmtree(tmp, ignore_errors=True)
     if results:

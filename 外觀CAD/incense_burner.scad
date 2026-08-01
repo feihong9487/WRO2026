@@ -42,6 +42,11 @@
 // ═══════════════════════════════════════════════════════════════════════════
 part = "assembly";  // ["assembly", "base", "chamber", "hood", "fan_mount", "sensor_pod", "print_plate"]
 
+// 剖半檢視：切掉一半看內部結構。
+// 加這個是因為外觀算繪看不出內部有沒有做對——例如集煙罩的投香口有沒有真的開通。
+SECTION = false;    // true = 剖半
+SECTION_AXIS = "y"; // "x" 或 "y"
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 列印參數
 // ═══════════════════════════════════════════════════════════════════════════
@@ -336,37 +341,41 @@ module chamber() {
 // ═══════════════════════════════════════════════════════════════════════════
 // ★列印方向：開口朝下倒印，全部斜面都變成自支撐★
 module hood() {
+    // 錐面上任一高度的外輪廓寬度／圓角（線性內插）
+    function w_at(z) = CHMB_W + (HOOD_TOP_W - CHMB_W) * z / HOOD_H;
+    function r_at(z) = CORNER_R + (CORNER_R * 0.6 - CORNER_R) * z / HOOD_H;
+
+    // 內腔上下各超出 OVER，確保真的切穿。
+    // ★這裡踩過坑★ 原本內腔頂面停在 HOOD_H，與外殼頂面共平面，
+    //   結果不是切穿而是留下一層退化頂蓋——投香口被封死。
+    //   參數檢查與 Volumes=2 都抓不到（封起來的罩子仍是合法單一實體），
+    //   是用 SECTION=true 剖半算繪才看出來的。
+    OVER = 2;
+
     difference() {
-        union() {
-            // 截頭錐外殼
-            difference() {
-                hull() {
-                    rrect(CHMB_W, CHMB_D, 0.1, CORNER_R);
-                    translate([(CHMB_W - HOOD_TOP_W) / 2, (CHMB_D - HOOD_TOP_W) / 2, HOOD_H - 0.1])
-                        rrect(HOOD_TOP_W, HOOD_TOP_W, 0.1, CORNER_R * 0.6);
-                }
-                // 內部挖空（等距內縮）
-                translate([0, 0, -0.1])
-                    hull() {
-                        translate([WALL, WALL, 0])
-                            rrect(CHMB_W - WALL * 2, CHMB_D - WALL * 2, 0.1, CORNER_R - WALL);
-                        translate([(CHMB_W - HOOD_TOP_W) / 2 + WALL,
-                                   (CHMB_D - HOOD_TOP_W) / 2 + WALL, HOOD_H])
-                            rrect(HOOD_TOP_W - WALL * 2, HOOD_TOP_W - WALL * 2, 0.1,
-                                  CORNER_R * 0.6 - WALL);
-                    }
-            }
+        // 外殼
+        hull() {
+            rrect(CHMB_W, CHMB_D, 0.1, CORNER_R);
+            translate([(CHMB_W - HOOD_TOP_W) / 2, (CHMB_D - HOOD_TOP_W) / 2, HOOD_H - 0.1])
+                rrect(HOOD_TOP_W, HOOD_TOP_W, 0.1, CORNER_R * 0.6);
+        }
+
+        // 內腔（沿同一錐度延伸到外殼之外）
+        hull() {
+            for (z = [-OVER, HOOD_H + OVER])
+                let (w = w_at(z), r = max(r_at(z) - WALL, 0.5))
+                    translate([(CHMB_W - w) / 2 + WALL, (CHMB_D - w) / 2 + WALL, z])
+                        rrect(w - WALL * 2, w - WALL * 2, 0.1, r);
         }
 
         // 底面定位榫孔（母）
         tenons_female(CHMB_W, CHMB_D, 0);
 
-        // ── 後方煙道出口：對齊燃燒艙的開口 ──
-        translate([CHMB_W / 2 - DUCT_W / 2, CHMB_D - WALL * 2 - 0.5, 4])
-            cube([DUCT_W, WALL * 2 + 1, DUCT_H]);
+        // 後方煙道出口：對齊燃燒艙的開口
+        translate([CHMB_W / 2 - DUCT_W / 2, CHMB_D - WALL * 3 - 0.5, 4])
+            cube([DUCT_W, WALL * 3 + 1, DUCT_H]);
     }
 }
-
 // ═══════════════════════════════════════════════════════════════════════════
 // 零件 4：風扇座（5015 鼓風機）
 // ═══════════════════════════════════════════════════════════════════════════
