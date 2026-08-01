@@ -1,0 +1,59 @@
+# 智慧香爐 — 雲端中心站（mosquitto + InfluxDB + Telegraf + Grafana）
+# 部署於雲主機（或家中常開機器）。與 cloud-mosquitto.conf、cloud-telegraf.conf、
+# 空白 passwd 檔放同一資料夾，改名為 docker-compose.yml 後執行 docker compose up -d
+# 注意：以下 Token/密碼為預設值，上線後務必更改
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"        # 若全走 Tailscale 私網，可改成 "127.0.0.1:1883:1883" 再由 tailscale serve 轉發，或直接保留
+    volumes:
+      - ./cloud-mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./passwd:/mosquitto/config/passwd
+      - mosq-data:/mosquitto/data
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=incense
+      - DOCKER_INFLUXDB_INIT_PASSWORD=incense12345
+      - DOCKER_INFLUXDB_INIT_ORG=incense
+      - DOCKER_INFLUXDB_INIT_BUCKET=incense
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=incense-local-token
+
+  telegraf:
+    image: telegraf:1.30
+    container_name: telegraf
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+      - mosquitto
+    volumes:
+      - ./cloud-telegraf.conf:/etc/telegraf/telegraf.conf:ro
+
+  grafana:
+    image: grafana/grafana-oss:11.2.0
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=incense12345
+
+volumes:
+  mosq-data:
+  influxdb-data:
+  grafana-data:

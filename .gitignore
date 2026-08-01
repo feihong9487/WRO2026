@@ -1,0 +1,39 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ── 自動化產生的 log ──
+auto_loop_*.log
+
+# ── CAD / EDA 的暫存與衍生檔 ──
+# 原始檔（.scad / 產生器 .py）才是真相來源，衍生檔可隨時重產
+外觀CAD/.scadchk_*/
+外觀CAD/_t_*.stl
+外觀CAD/_test.stl
+CAD自檢/_selftest.*
+*.stl
+
+# KiCad 個人偏好與鎖定檔（.kicad_pro / .kicad_sch 要進版控）
+*.kicad_prl
+*~*.lck
+*.kicad_sch-bak
+*-backups/
+.history/
+
+# ── 備份 ──
+*.orig
+*.bak
+
+# ── 作業系統 ──
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── ★ 機密：絕不進版控 ★ ──
+# CLAUDE.md §8：密碼一律不寫進檔案。這裡再加一層保險。
+.claude/settings.local.json
+*.env
+*secret*
+*password*
+passwd

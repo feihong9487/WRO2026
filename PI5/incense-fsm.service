@@ -1,0 +1,17 @@
+[Unit]
+Description=Incense decision-layer FSM (pi_fsm.py)
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/incense
+ExecStart=/usr/bin/python3 /opt/incense/pi_fsm.py
+Restart=always
+RestartSec=5
+# 開機時 R4 或 broker 還沒就緒也沒關係：程式退出會每 5 秒自動重試直到成功。
+# 預設以 root 執行（可直接存取 /dev/ttyACM0 與寫入 /opt/incense 紀錄檔）。
+# 若要改用一般帳號，解除下一行註解並確認該帳號在 dialout 群組、對 /opt/incense 有寫入權：
+# User=pi
+
+[Install]
+WantedBy=multi-user.target

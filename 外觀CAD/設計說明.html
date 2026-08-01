@@ -1,0 +1,281 @@
+<title>智慧香爐 — 外觀設計說明（剖面與列印指南）</title>
+<style>
+  :root {
+    --page:#f5f4f1; --ink:#1a1c1f; --ink2:#565b62; --ink3:#8b9199;
+    --panel:#fff; --edge:#dcdad5; --rule:#e6e4df;
+    --hot:#c0392b; --warm:#d98324; --cool:#2f6f8f; --air:#4a9d7f;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --page:#131619; --ink:#e7eaed; --ink2:#a4abb3; --ink3:#767d85;
+    --panel:#1b1f24; --edge:#2f353c; --rule:#272c32;
+    --hot:#e8695c; --warm:#e8a659; --cool:#6aaed0; --air:#5fc39d;}}
+  :root[data-theme="dark"]{--page:#131619;--ink:#e7eaed;--ink2:#a4abb3;--ink3:#767d85;
+    --panel:#1b1f24;--edge:#2f353c;--rule:#272c32;
+    --hot:#e8695c;--warm:#e8a659;--cool:#6aaed0;--air:#5fc39d;}
+  :root[data-theme="light"]{--page:#f5f4f1;--ink:#1a1c1f;--ink2:#565b62;--ink3:#8b9199;
+    --panel:#fff;--edge:#dcdad5;--rule:#e6e4df;
+    --hot:#c0392b;--warm:#d98324;--cool:#2f6f8f;--air:#4a9d7f;}
+
+  body{background:var(--page);color:var(--ink);
+       font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+       line-height:1.65;}
+  .wrap{max-width:74rem;margin:0 auto;padding:2.5rem 1.5rem 5rem;
+        display:flex;flex-direction:column;gap:2.5rem;}
+  .eyebrow{font-family:var(--mono);font-size:.75rem;letter-spacing:.16em;
+           text-transform:uppercase;color:var(--ink3);margin:0 0 .5rem;}
+  h1{font-size:2rem;margin:0 0 .5rem;letter-spacing:-.02em;}
+  h2{font-size:1.2rem;margin:0 0 1rem;padding-bottom:.45rem;
+     border-bottom:2px solid var(--edge);font-weight:650;}
+  h3{font-size:.98rem;margin:0 0 .5rem;font-weight:650;}
+  p{margin:0 0 .85rem;color:var(--ink2);max-width:70ch;}
+  p:last-child{margin-bottom:0;}
+  code{font-family:var(--mono);font-size:.9em;background:var(--rule);
+       padding:.1em .35em;border-radius:3px;}
+  section{display:flex;flex-direction:column;}
+
+  .fig{background:var(--panel);border:1px solid var(--edge);border-radius:6px;
+       padding:1.25rem;overflow-x:auto;}
+  .fig svg{display:block;width:100%;min-width:44rem;height:auto;}
+
+  .alert{border:1px solid var(--hot);border-left:4px solid var(--hot);
+         border-radius:5px;padding:1.1rem 1.4rem;
+         background:color-mix(in srgb,var(--hot) 7%,transparent);}
+  .alert .tag{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+              text-transform:uppercase;color:var(--hot);font-weight:700;
+              display:block;margin-bottom:.35rem;}
+  .alert p{color:var(--ink);}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--edge);border-radius:5px;}
+  table{width:100%;border-collapse:collapse;font-size:.87rem;}
+  th,td{text-align:left;padding:.55rem .85rem;border-bottom:1px solid var(--rule);
+        vertical-align:top;}
+  thead th{font-family:var(--mono);font-size:.72rem;letter-spacing:.07em;
+           text-transform:uppercase;color:var(--ink3);background:var(--rule);
+           white-space:nowrap;}
+  tbody tr:last-child td{border-bottom:none;}
+  td.n{font-family:var(--mono);white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .ok{color:var(--air);font-weight:700;}
+  .no{color:var(--hot);font-weight:700;}
+  .mid{color:var(--warm);font-weight:700;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:1.25rem;}
+  .card{border:1px solid var(--edge);border-radius:5px;padding:1.1rem;background:var(--panel);}
+  .card p{font-size:.87rem;}
+  footer{border-top:1px solid var(--edge);padding-top:1.2rem;font-family:var(--mono);
+         font-size:.75rem;color:var(--ink3);}
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">WRO 2026 · 智慧香爐 · 外觀 CAD</p>
+    <h1>桌上型展示機設計說明</h1>
+    <p>參數化 OpenSCAD ·  180 × 180 × 196 mm ·  FDM 分件列印 ·  2026-08-02</p>
+  </header>
+
+  <section class="alert">
+    <span class="tag">核心約束 · 熱</span>
+    <p><strong>熱電偶聯鎖門檻是 80 °C 觸發 / 60 °C 解除</strong>，代表爐面常態運作就在 60–80 °C。
+       PLA 的熱變形溫度只有 55–60 °C——<strong>燃燒艙若用 PLA 列印會軟化變形</strong>。</p>
+    <p style="margin-bottom:0">因此整個設計圍繞一件事：<strong>不讓塑膠靠近熱源</strong>。
+       燃燒由金屬爐盆承接，爐盆與塑膠之間留 8 mm 空氣間隙（空氣是最好的絕熱材），
+       電子艙再以 14 mm 隔熱層與燃燒艙分開並開對流縫。</p>
+  </section>
+
+  <section>
+    <h2>剖面圖 — 熱區隔與氣流</h2>
+    <div class="fig">
+      <svg viewBox="0 0 900 560" role="img"
+           aria-label="香爐縱剖面圖：由下而上為電子艙、隔熱層、燃燒艙含金屬爐盆與空氣間隙、集煙罩；後方為抽風機與排氣口，前方為感測器艙">
+        <defs>
+          <marker id="flow" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+          <marker id="dim" viewBox="0 0 10 10" refX="5" refY="5"
+                  markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ink3)"/>
+          </marker>
+          <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse"
+                   patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="6" stroke="var(--ink3)" stroke-width="1" opacity=".45"/>
+          </pattern>
+        </defs>
+
+        <g font-family="ui-monospace, monospace" font-size="11">
+
+          <!-- ══ 集煙罩 ══ -->
+          <path d="M170,90 L730,90 L648,226 L252,226 Z" fill="none"
+                stroke="var(--warm)" stroke-width="2.5"/>
+          <path d="M186,96 L714,96 L640,220 L260,220 Z" fill="none"
+                stroke="var(--warm)" stroke-width="1.2" opacity=".55"/>
+          <text x="450" y="76" text-anchor="middle" fill="var(--warm)" font-weight="700">集煙罩 hood</text>
+          <text x="450" y="118" text-anchor="middle" fill="var(--ink3)" font-size="10">投香口 96 mm</text>
+
+          <!-- ══ 燃燒艙 ══ -->
+          <rect x="252" y="226" width="396" height="158" fill="none"
+                stroke="var(--hot)" stroke-width="2.5"/>
+          <!-- 空氣間隙（陰影） -->
+          <rect x="258" y="232" width="384" height="146" fill="url(#hatch)" opacity=".5"/>
+          <!-- 金屬爐盆 -->
+          <path d="M329,258 L571,258 L571,357 L329,357 Z" fill="none"
+                stroke="var(--ink)" stroke-width="3"/>
+          <text x="450" y="312" text-anchor="middle" fill="var(--ink)" font-weight="700">金屬爐盆</text>
+          <text x="450" y="328" text-anchor="middle" fill="var(--ink3)" font-size="10">⌀110 × 45（自備）</text>
+          <!-- 空氣間隙標註 -->
+          <line x1="294" y1="300" x2="325" y2="300" stroke="var(--air)" stroke-width="1.5"
+                marker-start="url(#dim)" marker-end="url(#dim)"/>
+          <text x="240" y="296" fill="var(--air)" font-size="10" font-weight="700">空氣間隙</text>
+          <text x="248" y="309" fill="var(--air)" font-size="10">8 mm</text>
+          <text x="660" y="250" fill="var(--hot)" font-weight="700">燃燒艙 chamber</text>
+          <text x="660" y="265" fill="var(--ink3)" font-size="10">60–80 °C</text>
+
+          <!-- 熱電偶 -->
+          <path d="M329,340 L300,340 L300,398" stroke="var(--hot)" stroke-width="2" fill="none"/>
+          <circle cx="329" cy="340" r="4" fill="var(--hot)"/>
+          <text x="196" y="344" fill="var(--hot)" font-size="10">熱電偶貼爐盆外壁</text>
+
+          <!-- ══ 隔熱層 ══ -->
+          <rect x="252" y="384" width="396" height="31" fill="none"
+                stroke="var(--air)" stroke-width="2" stroke-dasharray="6 3"/>
+          <text x="450" y="404" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
+            隔熱空氣層 14 mm ＋ 對流通風縫</text>
+          <!-- 對流箭頭 -->
+          <path d="M268,412 L268,388" stroke="var(--air)" stroke-width="1.5" marker-end="url(#flow)"/>
+          <path d="M632,412 L632,388" stroke="var(--air)" stroke-width="1.5" marker-end="url(#flow)"/>
+
+          <!-- ══ 電子艙 ══ -->
+          <rect x="230" y="415" width="440" height="136" fill="none"
+                stroke="var(--cool)" stroke-width="2.5"/>
+          <rect x="258" y="470" width="150" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="333" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">MATRIX Mini R4</text>
+          <rect x="440" y="470" width="140" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="510" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">Raspberry Pi 5</text>
+          <rect x="600" y="470" width="52" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="626" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">D4184</text>
+          <text x="450" y="440" text-anchor="middle" fill="var(--cool)" font-weight="700">電子艙 base（常溫）</text>
+          <text x="450" y="536" text-anchor="middle" fill="var(--ink3)" font-size="10">
+            側面進氣柵格 → 自然對流帶走廢熱</text>
+
+          <!-- ══ 抽風路徑 ══ -->
+          <path d="M450,300 C450,250 500,214 620,206" stroke="var(--warm)" stroke-width="2.5"
+                fill="none" marker-end="url(#flow)" stroke-dasharray="7 4"/>
+          <text x="500" y="252" fill="var(--warm)" font-size="10">煙自然上升</text>
+
+          <rect x="700" y="180" width="86" height="76" rx="4" fill="none"
+                stroke="var(--ink)" stroke-width="2"/>
+          <circle cx="743" cy="218" r="26" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+          <circle cx="743" cy="218" r="7" fill="var(--ink)" opacity=".5"/>
+          <text x="743" y="170" text-anchor="middle" fill="var(--ink)" font-size="10.5" font-weight="700">
+            5015 鼓風機</text>
+          <path d="M648,206 L696,206" stroke="var(--warm)" stroke-width="2.5"
+                marker-end="url(#flow)"/>
+          <text x="640" y="196" fill="var(--warm)" font-size="10">煙道 46×30</text>
+          <path d="M788,218 L850,218" stroke="var(--warm)" stroke-width="3"
+                marker-end="url(#flow)"/>
+          <text x="800" y="208" fill="var(--warm)" font-size="10">排氣</text>
+          <text x="700" y="276" fill="var(--ink3)" font-size="9.5">離心式：軸向進氣、徑向出風</text>
+
+          <!-- ══ 感測器艙 ══ -->
+          <rect x="118" y="420" width="58" height="128" rx="4" fill="none"
+                stroke="var(--air)" stroke-width="2"/>
+          <text x="147" y="410" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
+            感測器艙</text>
+          <text x="147" y="452" text-anchor="middle" fill="var(--ink2)" font-size="9">SCD41</text>
+          <text x="147" y="500" text-anchor="middle" fill="var(--ink2)" font-size="9">SHT31</text>
+          <path d="M64,484 L112,484" stroke="var(--air)" stroke-width="2"
+                marker-end="url(#flow)"/>
+          <text x="30" y="472" fill="var(--air)" font-size="9.5">參拜者</text>
+          <text x="30" y="484" fill="var(--air)" font-size="9.5">呼吸帶</text>
+
+          <!-- ══ 總高標註 ══ -->
+          <line x1="866" y1="90" x2="866" y2="551" stroke="var(--ink3)" stroke-width="1"
+                marker-start="url(#dim)" marker-end="url(#dim)"/>
+          <text x="880" y="325" fill="var(--ink3)" font-size="10"
+                transform="rotate(90 880 325)" text-anchor="middle">總高 196 mm</text>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>為什麼感測器裝在前方，不裝在煙道裡</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>量測目的決定位置</h3>
+        <p style="margin-bottom:0">FSM 用 <code>CO₂ 斜率 &gt; 120 ppm/min</code> 偵測<strong>人潮</strong>，
+           據此前饋削峰。所以要量的是「<strong>參拜者實際呼吸到的空氣</strong>」，
+           而不是煙道裡的高濃度廢氣。裝前方朝外，量到的才是有意義的暴露值。</p>
+      </div>
+      <div class="card">
+        <h3>SCD41 也受不了高溫</h3>
+        <p style="margin-bottom:0">SCD41 工作溫度上限約 60 °C，SHT31 雖然耐得住但讀值會失真。
+           放進煙道不只讀數沒意義，感測器本身也會壞。前方位置同時解決量測意義與耐溫兩個問題。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>列印零件與材料</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>零件</th><th>尺寸 (mm)</th><th>列印方向</th><th>材料</th><th>說明</th></tr></thead>
+        <tbody>
+          <tr><td class="n">base</td><td class="n">180×180×62</td><td>底面朝下</td>
+              <td class="ok">PLA 可</td><td>遠離熱源。含板卡螺柱、進氣柵格、後面板開孔</td></tr>
+          <tr><td class="n">chamber</td><td class="n">156×156×72</td><td>底面朝下</td>
+              <td class="no">ABS / ASA / PETG</td><td>★最靠近熱源★ 含爐盆井、空氣間隙、隔熱層</td></tr>
+          <tr><td class="n">hood</td><td class="n">156×156×62</td><td class="mid">開口朝下倒印</td>
+              <td class="no">ABS / ASA / PETG</td><td>倒印讓所有斜面自支撐，免支撐材</td></tr>
+          <tr><td class="n">fan_mount</td><td class="n">56×56×31</td><td>背面朝下</td>
+              <td class="mid">PETG</td><td>會接觸排出的熱煙</td></tr>
+          <tr><td class="n">sensor_pod</td><td class="n">62×26×58</td><td>背面朝下</td>
+              <td class="ok">PLA 可</td><td>在前方，遠離熱源</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem">壁厚 <code>2.4 mm</code>（0.4 噴嘴 × 6 走線）、底頂 <code>2.0 mm</code>、
+       配合間隙 <code>0.3 mm</code>。五個零件都放得進 220×220 列印床。</p>
+  </section>
+
+  <section>
+    <h2>需要自備的非列印件</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>品項</th><th>規格</th><th>用途</th></tr></thead>
+        <tbody>
+          <tr><td>不鏽鋼碗／香灰盆</td><td class="n">⌀110 × 深 45</td>
+              <td><strong>關鍵件</strong>——承接燃燒，隔絕塑膠。買到後量實際尺寸改 <code>BOWL_D</code> / <code>BOWL_H</code></td></tr>
+          <tr><td>M3 自攻螺絲</td><td class="n">M3 × 8，約 16 支</td><td>板卡固定、風扇座、感測器艙</td></tr>
+          <tr><td>矽膠防滑墊</td><td class="n">⌀14 × 厚 1.2，4 個</td><td>底部凹槽已預留</td></tr>
+          <tr><td>DC 電源插座</td><td class="n">5.5/2.1 面板式，⌀8 孔</td><td>後面板 12V 輸入</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>尚未驗證的部分</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>⚠️ 需實測後修改的尺寸</h3>
+        <p style="margin-bottom:0">MATRIX Mini R4 <strong>官方未公佈外型尺寸</strong>，目前用
+           <code>90 × 70</code> 估值（以 Arduino UNO 68.6×53.4 為基礎放寬）。
+           SCD41／SHT31／D4184 模組尺寸同樣是估值。
+           <strong>拿到實體請量過再改參數</strong>——這些都在檔案頂端的參數區，改完重新算繪即可。</p>
+      </div>
+      <div class="card">
+        <h3>⚠️ 幾何尚未算繪確認</h3>
+        <p style="margin-bottom:0">本機沒有 OpenSCAD，所以我用參數化腳本驗證了
+           <strong>尺寸邏輯</strong>（元件裝得下、零件放得進列印床、熱間隙存在、
+           煙道三處一致），但<strong>沒有實際算繪過幾何</strong>。
+           布林運算是否如預期、有無破面，要開 OpenSCAD 按 F6 才知道。</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    智慧香爐 · 外觀 CAD 設計說明 · 2026-08-02<br>
+    原始檔 外觀CAD/incense_burner.scad · 驗證 外觀CAD/驗證CAD.py
+  </footer>
+</div>

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "author": "智慧香爐 WRO2026",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 0,
+      "left": 0,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "potCo2",
+      "top": -140,
+      "left": 220,
+      "attrs": { "label": "CO2 模擬 (取代 SCD41)" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledAlarm",
+      "top": 60,
+      "left": 240,
+      "attrs": { "color": "red", "label": "警報線 -> R4 D2" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "rLed",
+      "top": 140,
+      "left": 240,
+      "attrs": { "value": "220" }
+    }
+  ],
+  "connections": [
+    [ "esp:3V3",   "potCo2:VCC", "red",   [ "v-20", "h40" ] ],
+    [ "esp:GND.1", "potCo2:GND", "black", [ "v-40", "h60" ] ],
+    [ "esp:1",     "potCo2:SIG", "green", [ "v-10", "h30" ] ],
+
+    [ "esp:4",     "rLed:1",     "orange",[ "v30", "h40" ] ],
+    [ "rLed:2",    "ledAlarm:A", "orange",[ "v-20" ] ],
+    [ "ledAlarm:C","esp:GND.2",  "black", [ "v40", "h-120" ] ]
+  ],
+  "dependencies": {}
+}

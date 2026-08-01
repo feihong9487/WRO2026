@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "incense")(type "KiCad")(uri "${KIPRJMOD}/incense.kicad_sym")(options "")(descr "智慧香爐 P0 專用符號庫"))
+)

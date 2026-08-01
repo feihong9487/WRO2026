@@ -1,0 +1,1273 @@
+(export
+	(version "E")
+	(design
+		(source "D:\\WRO2026\\電路設計\\kicad\\incense_p0.kicad_sch")
+		(date "2026-08-02T02:55:52")
+		(tool "Eeschema 10.0.5")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title "智慧香爐 P0 — 兩板系統電路圖")
+				(company "WRO 2026 智慧香爐")
+				(rev "E")
+				(date "2026-07-31")
+				(source "incense_p0.kicad_sch")
+				(comment
+					(number "1")
+					(value "E 版：合併架構——感測改由 MATRIX Mini R4 直接 I2C 讀取，取消 ESP32-S3 與警報線")
+				)
+				(comment
+					(number "2")
+					(value "腳位僅用 D1/D4 埠（D2/D3 被 MiniR4.begin() 的 PS2 介面佔用）")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "A1")
+			(value "MATRIX Mini R4 控制器")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "MATRIX-Mini-R4")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d538295f-ec63-4832-895b-87df87b3fcd5")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "11")
+						)
+						(pin
+							(num "12")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "A2")
+			(value "Raspberry Pi 5 決策層")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "RaspberryPi5")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "bfadba96-dfe6-4474-a33a-26487f4be860")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "K型熱電偶")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "Thermocouple-K")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "44ab4c29-4e67-4644-a5d0-bf6e970ce758")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J2")
+			(value "12V 2A 變壓器")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "PSU-12V")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "049f9fbf-b480-40ae-8d45-f56e4fe94c33")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "M1")
+			(value "5015 渦輪風扇 12V 0.2A")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "Fan-5015")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "bfb48c09-2cfa-47a6-b6d4-626154215596")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U2")
+			(value "SCD41 CO2 (0x62) - I2C1 埠")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "SCD41")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "87868488-a8ab-4dee-a082-9e57ed633846")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U3")
+			(value "GY-SHT31-D (0x44) - I2C2 埠")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "SHT31")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "abe8b4f7-7de7-41f5-b29f-c81acf901190")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U5")
+			(value "MAX6675 熱電偶介面")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "MAX6675")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "a5b3687a-2fc5-4a32-9957-f4fdda6a6fa2")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U6")
+			(value "D4184 MOSFET 模組")
+			(fields
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "incense")
+				(part "D4184-Module")
+				(description "")
+			)
+			(property
+				(name "Sheetname")
+				(value "incense_p0")
+			)
+			(property
+				(name "Sheetfile")
+				(value "incense_p0.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c0f4be51-fd80-494b-9fc7-936ccbea5b8d")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "incense")
+			(part "D4184-Module")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "D4184 MOSFET 模組")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "TRIG_(PWM)")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "訊號_GND")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "VIN+")
+					(type "power_in")
+				)
+				(pin
+					(num "4")
+					(name "VIN-")
+					(type "power_in")
+				)
+				(pin
+					(num "5")
+					(name "OUT+")
+					(type "passive")
+				)
+				(pin
+					(num "6")
+					(name "OUT-")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "Fan-5015")
+			(fields
+				(field
+					(name "Reference") "M")
+				(field
+					(name "Value") "5015 渦輪風扇 12V 0.2A")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "紅線_+")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "黑線_-")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "MATRIX-Mini-R4")
+			(fields
+				(field
+					(name "Reference") "A")
+				(field
+					(name "Value") "MATRIX Mini R4 控制器")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VIN_6-24V")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "I2C1_SDA")
+					(type "bidirectional")
+				)
+				(pin
+					(num "4")
+					(name "I2C1_SCL")
+					(type "bidirectional")
+				)
+				(pin
+					(num "5")
+					(name "I2C2_SDA")
+					(type "bidirectional")
+				)
+				(pin
+					(num "6")
+					(name "I2C2_SCL")
+					(type "bidirectional")
+				)
+				(pin
+					(num "7")
+					(name "5V_OUT")
+					(type "power_out")
+				)
+				(pin
+					(num "8")
+					(name "D4L_p13_SCK")
+					(type "output")
+				)
+				(pin
+					(num "9")
+					(name "D4R_p10_SO")
+					(type "input")
+				)
+				(pin
+					(num "10")
+					(name "D1R_p2_CS")
+					(type "output")
+				)
+				(pin
+					(num "11")
+					(name "D1L_p3_PWM")
+					(type "output")
+				)
+				(pin
+					(num "12")
+					(name "USB_-_Pi_5")
+					(type "bidirectional")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "MAX6675")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "MAX6675 熱電偶介面")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VCC_5V")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "SCK")
+					(type "input")
+				)
+				(pin
+					(num "4")
+					(name "CS")
+					(type "input")
+				)
+				(pin
+					(num "5")
+					(name "SO")
+					(type "output")
+				)
+				(pin
+					(num "6")
+					(name "K+")
+					(type "passive")
+				)
+				(pin
+					(num "7")
+					(name "K-")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "PSU-12V")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "12V 2A 變壓器")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "+12V")
+					(type "power_out")
+				)
+				(pin
+					(num "2")
+					(name "0V")
+					(type "power_in")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "RaspberryPi5")
+			(fields
+				(field
+					(name "Reference") "A")
+				(field
+					(name "Value") "Raspberry Pi 5 決策層")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "USB_-_控制器")
+					(type "bidirectional")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "SCD41")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "SCD41 CO2 (0x62) - I2C1 埠")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VDD_5V")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "SDA")
+					(type "bidirectional")
+				)
+				(pin
+					(num "4")
+					(name "SCL")
+					(type "bidirectional")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "SHT31")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "GY-SHT31-D (0x44) - I2C2 埠")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VIN_5V")
+					(type "power_in")
+				)
+				(pin
+					(num "2")
+					(name "GND")
+					(type "power_in")
+				)
+				(pin
+					(num "3")
+					(name "SDA")
+					(type "bidirectional")
+				)
+				(pin
+					(num "4")
+					(name "SCL")
+					(type "bidirectional")
+				)
+			)
+		)
+		(libpart
+			(lib "incense")
+			(part "Thermocouple-K")
+			(fields
+				(field
+					(name "Reference") "J")
+				(field
+					(name "Value") "K型熱電偶")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description")
+				)
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "K+")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "K-")
+					(type "passive")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "incense")
+			(uri "${KIPRJMOD}/incense.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "+5V")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "7")
+				(pinfunction "5V_OUT_7")
+				(pintype "power_out")
+			)
+			(node
+				(ref "U2")
+				(pin "1")
+				(pinfunction "VDD_5V_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U3")
+				(pin "1")
+				(pinfunction "VIN_5V_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U5")
+				(pin "1")
+				(pinfunction "VCC_5V_1")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "2")
+			(name "+12V")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "1")
+				(pinfunction "VIN_6-24V_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "J2")
+				(pin "1")
+				(pinfunction "+12V_1")
+				(pintype "power_out")
+			)
+			(node
+				(ref "U6")
+				(pin "3")
+				(pinfunction "VIN+_3")
+				(pintype "power_in")
+			)
+		)
+		(net
+			(code "3")
+			(name "/FAN_N")
+			(class "Default")
+			(node
+				(ref "M1")
+				(pin "2")
+				(pinfunction "黑線_-_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U6")
+				(pin "6")
+				(pinfunction "OUT-_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "4")
+			(name "/FAN_P")
+			(class "Default")
+			(node
+				(ref "M1")
+				(pin "1")
+				(pinfunction "紅線_+_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U6")
+				(pin "5")
+				(pinfunction "OUT+_5")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "5")
+			(name "/FAN_PWM")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "11")
+				(pinfunction "D1L_p3_PWM_11")
+				(pintype "output")
+			)
+			(node
+				(ref "U6")
+				(pin "1")
+				(pinfunction "TRIG_(PWM)_1")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "6")
+			(name "/I2C1_SCL")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "4")
+				(pinfunction "I2C1_SCL_4")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U2")
+				(pin "4")
+				(pinfunction "SCL_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "7")
+			(name "/I2C1_SDA")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "3")
+				(pinfunction "I2C1_SDA_3")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U2")
+				(pin "3")
+				(pinfunction "SDA_3")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "8")
+			(name "/I2C2_SCL")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "6")
+				(pinfunction "I2C2_SCL_6")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U3")
+				(pin "4")
+				(pinfunction "SCL_4")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "9")
+			(name "/I2C2_SDA")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "5")
+				(pinfunction "I2C2_SDA_5")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "U3")
+				(pin "3")
+				(pinfunction "SDA_3")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "10")
+			(name "/TC_CS")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "10")
+				(pinfunction "D1R_p2_CS_10")
+				(pintype "output")
+			)
+			(node
+				(ref "U5")
+				(pin "4")
+				(pinfunction "CS_4")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "11")
+			(name "/TC_KN")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "K-_2")
+				(pintype "passive")
+			)
+			(node
+				(ref "U5")
+				(pin "7")
+				(pinfunction "K-_7")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "12")
+			(name "/TC_KP")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "K+_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U5")
+				(pin "6")
+				(pinfunction "K+_6")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "13")
+			(name "/TC_SCK")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "8")
+				(pinfunction "D4L_p13_SCK_8")
+				(pintype "output")
+			)
+			(node
+				(ref "U5")
+				(pin "3")
+				(pinfunction "SCK_3")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "14")
+			(name "/TC_SO")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "9")
+				(pinfunction "D4R_p10_SO_9")
+				(pintype "input")
+			)
+			(node
+				(ref "U5")
+				(pin "5")
+				(pinfunction "SO_5")
+				(pintype "output")
+			)
+		)
+		(net
+			(code "15")
+			(name "/USB_PI_R4")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "12")
+				(pinfunction "USB_-_Pi_5_12")
+				(pintype "bidirectional")
+			)
+			(node
+				(ref "A2")
+				(pin "2")
+				(pinfunction "USB_-_控制器_2")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "16")
+			(name "GND")
+			(class "Default")
+			(node
+				(ref "A1")
+				(pin "2")
+				(pinfunction "GND_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "A2")
+				(pin "1")
+				(pinfunction "GND_1")
+				(pintype "power_in")
+			)
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "0V_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U2")
+				(pin "2")
+				(pinfunction "GND_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U3")
+				(pin "2")
+				(pinfunction "GND_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U5")
+				(pin "2")
+				(pinfunction "GND_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U6")
+				(pin "2")
+				(pinfunction "訊號_GND_2")
+				(pintype "power_in")
+			)
+			(node
+				(ref "U6")
+				(pin "4")
+				(pinfunction "VIN-_4")
+				(pintype "power_in")
+			)
+		)
+	)
+)

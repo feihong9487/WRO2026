@@ -1,0 +1,44 @@
+{
+  "_說明": [
+    "放到 D:\\WRO2026\\.claude\\settings.json（WSL 內：/mnt/d/WRO2026/.claude/settings.json）",
+    "",
+    "PostToolUse：改檔後立刻跑一次測試，把結果推到 Claude 眼前（快速回饋）。",
+    "Stop：準備結束回應時做最終自檢，沒過就擋下並要求修正（自檢閘門）。",
+    "",
+    "★ 2026-08-02 修正 ★",
+    "  原本指令是 `python3 -m pytest -q`，但本機系統 Python 受 PEP 668 保護，",
+    "  pytest 裝不了，每次編輯都只會噴 'No module named pytest'。",
+    "  改用專案自帶的 run_tests.py（純標準函式庫，行為與 pytest -q 等價）。",
+    "",
+    "★ 建議循序啟用 ★",
+    "  第一週：只留 PostToolUse，先確認測試在你的環境跑得動。",
+    "  熟悉後再啟用 Stop hook —— 它會實際改變 Claude 的結束行為。",
+    "  stop_gate.sh 內建 3 次上限，請勿移除，否則測試修不好時會無限迴圈。",
+    "",
+    "hooks 以你的使用者權限執行，等同可執行程式碼；新增前務必讀懂內容。",
+    "JSON 不支援註解，故以底線欄位承載說明，正式使用可刪除。"
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"${CLAUDE_PROJECT_DIR:-/mnt/d/WRO2026}\" && python3 run_tests.py -q 2>&1 | tail -8"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-/mnt/d/WRO2026}\"/.claude/stop_gate.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

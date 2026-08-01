@@ -1,0 +1,393 @@
+<title>智慧香爐 P0 — 接線圖與電氣驗證</title>
+<style>
+  :root {
+    --paper:      #ffffff;
+    --panel:      #f6f7f8;
+    --ink:        #14181c;
+    --ink-2:      #4a545e;
+    --ink-3:      #77838f;
+    --rule:       #d8dee4;
+    --rule-hard:  #aab4bf;
+
+    --c-pwr:      #c0392b;
+    --c-gnd:      #2f3841;
+    --c-alarm:    #d2691e;
+    --c-i2c:      #1f7a5a;
+    --c-pwm:      #1f5f96;
+    --c-12v:      #8a2f1a;
+
+    --ok:         #1f7a5a;
+    --warn:       #b06a15;
+    --bad:        #c0392b;
+    --bad-bg:     #fdf2f0;
+    --bad-edge:   #e8b4ac;
+
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+    --sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans TC", "Hiragino Sans", system-ui, -apple-system, sans-serif;
+
+    --s1: .78rem; --s2: .875rem; --s3: 1rem; --s4: 1.25rem; --s5: 1.625rem; --s6: 2.125rem;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0e1216; --panel: #161c22; --ink: #e6ecf2; --ink-2: #a9b6c2; --ink-3: #7d8a97;
+      --rule: #2a333c; --rule-hard: #47535f;
+      --c-pwr: #f0705f; --c-gnd: #9aa7b3; --c-alarm: #f0a35e; --c-i2c: #4cc496; --c-pwm: #6aacea; --c-12v: #e08a6a;
+      --ok: #4cc496; --warn: #e0a33f; --bad: #f0705f; --bad-bg: #2a1a18; --bad-edge: #6b3830;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0e1216; --panel: #161c22; --ink: #e6ecf2; --ink-2: #a9b6c2; --ink-3: #7d8a97;
+    --rule: #2a333c; --rule-hard: #47535f;
+    --c-pwr: #f0705f; --c-gnd: #9aa7b3; --c-alarm: #f0a35e; --c-i2c: #4cc496; --c-pwm: #6aacea; --c-12v: #e08a6a;
+    --ok: #4cc496; --warn: #e0a33f; --bad: #f0705f; --bad-bg: #2a1a18; --bad-edge: #6b3830;
+  }
+  :root[data-theme="light"] {
+    --paper: #ffffff; --panel: #f6f7f8; --ink: #14181c; --ink-2: #4a545e; --ink-3: #77838f;
+    --rule: #d8dee4; --rule-hard: #aab4bf;
+    --c-pwr: #c0392b; --c-gnd: #2f3841; --c-alarm: #d2691e; --c-i2c: #1f7a5a; --c-pwm: #1f5f96; --c-12v: #8a2f1a;
+    --ok: #1f7a5a; --warn: #b06a15; --bad: #c0392b; --bad-bg: #fdf2f0; --bad-edge: #e8b4ac;
+  }
+
+  body {
+    background: var(--paper); color: var(--ink);
+    font-family: var(--sans); font-size: var(--s3); line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 3rem 1.5rem 6rem; display: flex; flex-direction: column; gap: 3rem; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: var(--s1); letter-spacing: .16em; text-transform: uppercase;
+    color: var(--ink-3); margin: 0 0 .6rem;
+  }
+  h1 { font-size: var(--s6); line-height: 1.15; margin: 0 0 .75rem; text-wrap: balance; letter-spacing: -.02em; font-weight: 700; }
+  h2 {
+    font-size: var(--s4); margin: 0 0 1rem; letter-spacing: -.01em; font-weight: 650;
+    padding-bottom: .5rem; border-bottom: 2px solid var(--rule-hard);
+  }
+  h3 { font-size: var(--s3); margin: 0 0 .5rem; font-weight: 650; }
+  p { margin: 0 0 .9rem; color: var(--ink-2); max-width: 68ch; }
+  p:last-child { margin-bottom: 0; }
+  section { display: flex; flex-direction: column; }
+  code { font-family: var(--mono); font-size: .92em; background: var(--panel); padding: .1em .35em; border-radius: 3px; }
+
+  /* ── correction banner ── */
+  .alert {
+    border: 1px solid var(--bad-edge); background: var(--bad-bg);
+    border-left: 4px solid var(--bad); border-radius: 4px; padding: 1.25rem 1.5rem;
+  }
+  .alert .tag {
+    font-family: var(--mono); font-size: var(--s1); letter-spacing: .1em; text-transform: uppercase;
+    color: var(--bad); font-weight: 700; display: block; margin-bottom: .4rem;
+  }
+  .alert p { color: var(--ink); }
+  .alert strong { color: var(--bad); }
+
+  /* ── math block ── */
+  .calc {
+    font-family: var(--mono); font-size: var(--s2); background: var(--panel);
+    border: 1px solid var(--rule); border-radius: 4px; padding: 1rem 1.25rem;
+    overflow-x: auto; white-space: pre; line-height: 1.8; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── diagram ── */
+  .figure { border: 1px solid var(--rule); border-radius: 4px; background: var(--panel); padding: 1.5rem 1rem; overflow-x: auto; }
+  .figure svg { width: 100%; min-width: 42rem; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 1.25rem; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+  .legend span { display: inline-flex; align-items: center; gap: .45rem; font-family: var(--mono); font-size: var(--s1); color: var(--ink-2); }
+  .legend i { width: 1.5rem; height: 3px; border-radius: 2px; display: block; }
+
+  /* ── tables ── */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: var(--s2); }
+  th, td { text-align: left; padding: .6rem .9rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  thead th {
+    font-family: var(--mono); font-size: var(--s1); letter-spacing: .08em; text-transform: uppercase;
+    color: var(--ink-3); font-weight: 600; background: var(--panel); white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.pin { font-family: var(--mono); white-space: nowrap; font-weight: 600; }
+  .new td { background: color-mix(in srgb, var(--c-alarm) 9%, transparent); }
+
+  .chip {
+    font-family: var(--mono); font-size: var(--s1); padding: .1rem .45rem; border-radius: 3px;
+    border: 1px solid currentColor; white-space: nowrap; font-weight: 600;
+  }
+  .chip.pwr { color: var(--c-pwr); } .chip.gnd { color: var(--c-gnd); }
+  .chip.alarm { color: var(--c-alarm); } .chip.i2c { color: var(--c-i2c); }
+  .chip.pwm { color: var(--c-pwm); } .chip.v12 { color: var(--c-12v); }
+
+  .verdict { font-family: var(--mono); font-weight: 700; white-space: nowrap; }
+  .verdict.ok { color: var(--ok); } .verdict.bad { color: var(--bad); } .verdict.warn { color: var(--warn); }
+
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); gap: 1.5rem; }
+  .card { border: 1px solid var(--rule); border-radius: 4px; padding: 1.25rem; background: var(--panel); }
+  .card h3 { margin-bottom: .6rem; }
+  .card p { font-size: var(--s2); }
+
+  ol.steps { margin: 0; padding-left: 1.3rem; color: var(--ink-2); font-size: var(--s2); }
+  ol.steps li { margin-bottom: .55rem; }
+  ol.steps li::marker { font-family: var(--mono); color: var(--ink-3); font-weight: 700; }
+  ol.steps strong { color: var(--ink); }
+
+  footer { border-top: 1px solid var(--rule); padding-top: 1.5rem; font-size: var(--s1); color: var(--ink-3); font-family: var(--mono); }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">WRO 2026 · 智慧香爐 · P0 里程碑</p>
+    <h1>接線圖與電氣驗證</h1>
+    <p>兩板合併架構的完整腳位對照、訊號路徑，以及通電前的規格書驗算。<br>
+       rev E · 2026-08-02 — 感測改由 MATRIX Mini R4 直接 I²C 讀取，取消 ESP32-S3 與警報線。</p>
+  </header>
+
+  <section class="alert">
+    <span class="tag">腳位限制 · 必讀</span>
+    <p><strong>不可使用 D2、D3 埠。</strong>
+       <code>MiniR4.begin()</code> 內部執行
+       <code>PS2.config_gamepad(11, 4, 12, 5)</code>，把腳 11／4／12／5
+       配給 PS2 手把介面。原本規劃 MAX6675 走 D3 埠（腳 12、11）會直接衝突。</p>
+    <p style="margin-bottom:0">本設計僅用 <strong>D1 埠（腳 3、2）與 D4 埠（腳 13、10）</strong>。
+       風扇 PWM 必須落在 3／5／10／11 其中之一——這四支是 MATRIX 各埠中支援 PWM 的腳。</p>
+  </section>
+
+  <section>
+    <h2>系統拓撲</h2>
+    <div class="figure">
+      <svg viewBox="0 0 960 340" role="img" aria-label="兩板系統拓撲：SCD41 與 SHT31 經 I2C 埠接 MATRIX Mini R4，控制器再經 USB 序列連 Raspberry Pi 5，並驅動 MAX6675 與 D4184 風扇模組">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <g font-family="ui-monospace, monospace" font-size="12">
+
+          <!-- 感測器 -->
+          <rect x="30" y="30" width="150" height="42" rx="3" fill="none" stroke="var(--c-i2c)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="105" y="49" text-anchor="middle" fill="var(--c-i2c)" font-weight="700">SCD41 (0x62)</text>
+          <text x="105" y="65" text-anchor="middle" fill="var(--ink-3)">CO₂ · 5 秒更新</text>
+
+          <rect x="30" y="108" width="150" height="42" rx="3" fill="none" stroke="var(--c-i2c)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="105" y="127" text-anchor="middle" fill="var(--c-i2c)" font-weight="700">SHT31 (0x44)</text>
+          <text x="105" y="143" text-anchor="middle" fill="var(--ink-3)">溫濕度 · 1 Hz</text>
+
+          <line x1="180" y1="51" x2="292" y2="78" stroke="var(--c-i2c)" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="180" y1="129" x2="292" y2="102" stroke="var(--c-i2c)" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="236" y="52" text-anchor="middle" fill="var(--c-i2c)" font-size="10">I²C1 埠</text>
+          <text x="236" y="140" text-anchor="middle" fill="var(--c-i2c)" font-size="10">I²C2 埠</text>
+
+          <!-- 控制器 -->
+          <rect x="300" y="42" width="220" height="96" rx="4" fill="var(--paper)" stroke="var(--ink)" stroke-width="2.5"/>
+          <text x="410" y="72" text-anchor="middle" fill="var(--ink)" font-size="15" font-weight="700">MATRIX Mini R4</text>
+          <text x="410" y="92" text-anchor="middle" fill="var(--ink-2)">感測 ＋ 安全 ＋ 致動</text>
+          <text x="410" y="110" text-anchor="middle" fill="var(--ink-3)" font-size="11">聯鎖 · 看門狗 · 本地 FSM</text>
+          <text x="410" y="127" text-anchor="middle" fill="var(--ink-3)" font-size="10">基於 UNO R4 WiFi</text>
+
+          <!-- Pi 5 -->
+          <rect x="300" y="228" width="220" height="76" rx="4" fill="var(--paper)" stroke="var(--ink)" stroke-width="2"/>
+          <text x="410" y="256" text-anchor="middle" fill="var(--ink)" font-size="15" font-weight="700">Raspberry Pi 5</text>
+          <text x="410" y="275" text-anchor="middle" fill="var(--ink-2)">決策層 · FSM</text>
+          <text x="410" y="292" text-anchor="middle" fill="var(--ink-3)" font-size="11">JSONL 審計 · 雲端閘道</text>
+
+          <line x1="410" y1="138" x2="410" y2="222" stroke="var(--ink-2)" stroke-width="2.5" marker-end="url(#ar)"/>
+          <line x1="392" y1="222" x2="392" y2="138" stroke="var(--ink-2)" stroke-width="2.5" marker-end="url(#ar)"/>
+          <text x="530" y="176" text-anchor="middle" fill="var(--ink-2)" font-size="11">USB 序列</text>
+          <text x="530" y="191" text-anchor="middle" fill="var(--ink-3)" font-size="10">感測上傳 ＋ FAN 指令</text>
+
+          <!-- 致動端 -->
+          <rect x="700" y="30" width="230" height="52" rx="3" fill="none" stroke="var(--c-pwm)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="815" y="50" text-anchor="middle" fill="var(--c-pwm)" font-weight="700">MAX6675 → K 型熱電偶</text>
+          <text x="815" y="68" text-anchor="middle" fill="var(--ink-3)">D4 埠(13,10) ＋ D1 埠(2)</text>
+
+          <rect x="700" y="100" width="230" height="52" rx="3" fill="none" stroke="var(--c-12v)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="815" y="120" text-anchor="middle" fill="var(--c-12v)" font-weight="700">D4184 → 5015 風扇 12V</text>
+          <text x="815" y="138" text-anchor="middle" fill="var(--ink-3)">D1 埠(3) PWM</text>
+
+          <line x1="520" y1="72" x2="694" y2="56" stroke="var(--c-pwm)" stroke-width="2" marker-end="url(#ar)"/>
+          <line x1="520" y1="108" x2="694" y2="126" stroke="var(--c-12v)" stroke-width="2" marker-end="url(#ar)"/>
+
+          <!-- 電源 -->
+          <rect x="30" y="228" width="200" height="52" rx="3" fill="none" stroke="var(--c-pwr)" stroke-width="1.5"/>
+          <text x="130" y="248" text-anchor="middle" fill="var(--c-pwr)" font-weight="700">12V 2A 變壓器</text>
+          <text x="130" y="266" text-anchor="middle" fill="var(--ink-3)" font-size="10">一顆餵控制器＋風扇</text>
+          <path d="M230,242 L268,242 L268,90 L294,90" fill="none" stroke="var(--c-pwr)" stroke-width="2" marker-end="url(#ar)"/>
+          <path d="M230,266 L600,266 L600,146 L694,132" fill="none" stroke="var(--c-pwr)" stroke-width="2" marker-end="url(#ar)"/>
+          <text x="612" y="284" fill="var(--ink-3)" font-size="10">共地自動成立（同一電源負極）</text>
+        </g>
+      </svg>
+      <div class="legend">
+        <span><i style="background:var(--c-i2c)"></i>I²C（Grove 4 芯線）</span>
+        <span><i style="background:var(--ink-2)"></i>USB 序列</span>
+        <span><i style="background:var(--c-pwm)"></i>熱電偶 SPI</span>
+        <span><i style="background:var(--c-12v)"></i>風扇 PWM</span>
+        <span><i style="background:var(--c-pwr)"></i>12V 動力</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>感測層 · Grove 直插</h2>
+    <p>兩顆感測器各佔一個 I²C 埠。Grove 線一條同時帶 5 V、GND、SDA、SCL，
+       所以實體上每顆只有一條線——不需要麵包板。</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>感測器</th><th>MATRIX 埠</th><th>位址</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr class="new"><td class="pin">SCD41</td><td class="pin">I²C1</td><td class="pin">0x62</td>
+              <td>CO₂ 主要來源；更新週期 5 秒（硬體特性）</td></tr>
+          <tr class="new"><td class="pin">GY-SHT31-D</td><td class="pin">I²C2</td><td class="pin">0x44</td>
+              <td>溫濕度；與 SCD41 交叉驗證產生 <code>conf</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid2" style="margin-top:1.5rem">
+      <div class="card">
+        <h3>為什麼可以直接吃 5 V</h3>
+        <div class="calc">SCD41        VDD 2.4 – 5.5 V   ✓
+GY-SHT31-D   VIN 2.4 – 5.5 V   ✓
+             SDA/SCL 內建 10k 上拉到 VIN</div>
+        <p style="margin-top:.9rem;margin-bottom:0">舊指南寫的「感測器不要接 5 V」，其實是為了保護
+           <strong>ESP32-S3</strong>（GPIO 不耐 5 V）——感測器本身從來不怕。
+           拿掉 S3 後這個限制自動消失。</p>
+      </div>
+      <div class="card">
+        <h3>各埠彼此獨立（PCA9548A 多工器）</h3>
+        <p>I²C1–I²C4 走 <code>Wire1</code>，經位址 <code>0x70</code> 的多工器分流，
+           所以兩顆感測器<strong>不共用匯流排</strong>。第三方函式庫不認得多工器，
+           韌體存取前要先切通道：</p>
+        <div class="calc">Wire1.beginTransmission(0x70);
+Wire1.write(1 &lt;&lt; ch);   // I2C1→0, I2C2→1
+Wire1.endTransmission();</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>MATRIX Mini R4 · 控制器腳位</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>用途</th><th>埠</th><th>Arduino 腳</th><th>訊號</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">SCD41</td><td class="pin">I²C1</td><td class="pin">Wire1 ch0</td>
+              <td><span class="chip i2c">I²C</span></td><td rowspan="2">Grove 線直插，含 5 V/GND</td></tr>
+          <tr><td class="pin">SHT31</td><td class="pin">I²C2</td><td class="pin">Wire1 ch1</td>
+              <td><span class="chip i2c">I²C</span></td></tr>
+          <tr class="new"><td class="pin">MAX6675 SCK</td><td class="pin">D4 左</td><td class="pin">13</td>
+              <td><span class="chip pwm">SPI</span></td><td rowspan="3">軟體 SPI，任意數位腳皆可</td></tr>
+          <tr class="new"><td class="pin">MAX6675 SO</td><td class="pin">D4 右</td><td class="pin">10</td>
+              <td><span class="chip pwm">SPI</span></td></tr>
+          <tr class="new"><td class="pin">MAX6675 CS</td><td class="pin">D1 右</td><td class="pin">2</td>
+              <td><span class="chip pwm">SPI</span></td></tr>
+          <tr class="new"><td class="pin">風扇 PWM</td><td class="pin">D1 左</td><td class="pin">3</td>
+              <td><span class="chip v12">PWM</span></td><td>→ D4184 TRIG。<strong>必須是 PWM 腳</strong></td></tr>
+          <tr><td class="pin">Pi 5</td><td class="pin">USB-C</td><td class="pin">序列 115200</td>
+              <td><span class="chip gnd">雙向</span></td><td>供電 ＋ 感測上傳 ＋ FAN 指令</td></tr>
+          <tr><td class="pin">電源</td><td class="pin">VIN</td><td class="pin">6–24 V</td>
+              <td><span class="chip v12">12 V</span></td><td>與 D4184 共用同一顆變壓器</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;border-left:4px solid var(--bad)">
+      <h3>⚠️ D2、D3 埠不可用</h3>
+      <p style="margin-bottom:0"><code>MiniR4.begin()</code> 會執行
+         <code>PS2.config_gamepad(11, 4, 12, 5)</code>，把 D2 埠（腳 5、4）與
+         D3 埠（腳 12、11）配給手把介面。各埠支援 PWM 的腳只有
+         <strong>3（D1 左）、5（D2 左）、11（D3 右）、10（D4 右）</strong>四支，
+         扣掉被佔用的 5 與 11，風扇只能用 3 或 10。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>爐溫量測</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>MAX6675</th><th>接到</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr><td class="pin">VCC</td><td class="pin">5 V</td><td>MAX6675 是 5 V 元件，與控制器同電壓，直接相接</td></tr>
+          <tr><td class="pin">GND</td><td class="pin">GND</td><td>—</td></tr>
+          <tr><td class="pin">SCK</td><td class="pin">腳 13（D4 左）</td><td rowspan="3">轉換 220 ms，韌體每 500 ms 讀一次</td></tr>
+          <tr><td class="pin">CS</td><td class="pin">腳 2（D1 右）</td></tr>
+          <tr><td class="pin">SO</td><td class="pin">腳 10（D4 右）</td></tr>
+          <tr><td class="pin">K+ / K−</td><td class="pin">熱電偶端子</td><td>加熱時讀值下降＝極性反了，兩線對調</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem">聯鎖門檻：≥ 80 °C 觸發、≤ 60 °C 解除（遲滯）。
+       熱電偶斷線（讀值 NaN）視為感測失效，一律進安全態強制停止風扇。</p>
+  </section>
+
+  <section>
+    <h2>12 V 動力段</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>連線</th><th>接到</th><th>訊號</th><th>備註</th></tr></thead>
+        <tbody>
+          <tr class="new"><td class="pin">12 V 變壓器 +</td><td class="pin">控制器 VIN</td><td><span class="chip v12">12 V</span></td><td><strong>同一顆電源</strong>——控制器吃 6–24 V</td></tr>
+          <tr><td class="pin">12 V 變壓器 +/−</td><td class="pin">D4184 VIN+/−</td><td><span class="chip v12">12 V</span></td><td>0.2 A 用量 vs 2 A 供給，10 倍餘量</td></tr>
+          <tr><td class="pin">風扇紅線</td><td class="pin">D4184 OUT+</td><td><span class="chip v12">12 V</span></td><td rowspan="2">5015 渦輪，2.4 W</td></tr>
+          <tr><td class="pin">風扇黑線</td><td class="pin">D4184 OUT−</td><td><span class="chip v12">12 V</span></td></tr>
+          <tr><td class="pin">D4184 訊號 GND</td><td class="pin">R4 GND</td><td><span class="chip gnd">GND</span></td><td>共地母排</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:1rem"><strong>合併後的一個實質好處：共地自動成立。</strong>
+       控制器與 D4184 接同一顆變壓器的正負極，地線天生共通——
+       省去原三板設計最容易翻車的「地線母排」步驟（沒共地，警報線完全不會動作）。</p>
+    <p><strong>仍要注意：</strong>12 V 只進控制器 VIN 與 D4184 VIN±，<strong>絕不可碰到 5 V 排</strong>。
+       另外馬達埠是 5 V（<code>Port M1 DC 5V Motor</code>），推不動 12 V 風扇，D4184 必須保留。</p>
+  </section>
+
+  <section>
+    <h2>通電前驗算總表</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>介面</th><th>判定</th><th>餘量</th><th>依據</th></tr></thead>
+        <tbody>
+          <tr class="new"><td>感測器 5 V 供電</td><td class="verdict ok">合格</td><td class="pin">—</td><td>兩顆皆 2.4–5.5 V，5 V 在範圍內</td></tr>
+          <tr><td>I²C 上升時間</td><td class="verdict ok">合格</td><td class="pin">4.7×</td><td>210 ns vs 上限 1000 ns</td></tr>
+          <tr class="new"><td>I²C 線長</td><td class="verdict warn">有上限</td><td class="pin">1–2 m</td><td>100 kHz ＋ 10 kΩ 上拉；超過須改回 WiFi</td></tr>
+          <tr><td>MAX6675 ↔ 控制器</td><td class="verdict ok">合格</td><td class="pin">—</td><td>兩端同為 5 V</td></tr>
+          <tr class="new"><td>風扇 PWM 腳（腳 3）</td><td class="verdict ok">合格</td><td class="pin">—</td><td>D1 左支援 PWM，且未被 PS2 佔用</td></tr>
+          <tr><td>風扇電流 vs MOSFET</td><td class="verdict ok">合格</td><td class="pin">75×</td><td>0.2 A vs 15 A</td></tr>
+          <tr class="new"><td>12 V 電源預算</td><td class="verdict ok">合格</td><td class="pin">約 3×</td><td>控制器 0.5 A ＋ 風扇 0.2 A vs 2 A</td></tr>
+          <tr><td>風扇 PWM 頻率</td><td class="verdict warn">需調參</td><td class="pin">—</td><td>預設 490 Hz 會嘯叫，改 25 kHz</td></tr>
+          <tr><td>S1 duty = 70</td><td class="verdict warn">待實測</td><td class="pin">—</td><td>可能低於無刷風扇最低啟動占空比</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>上電順序</h2>
+    <div class="grid2">
+      <div class="card">
+        <h3>接線與上電</h3>
+        <ol class="steps">
+          <li><strong>目視檢查</strong>：12 V 排沒短到 5 V 排</li>
+          <li><strong>先插 Grove 線</strong>：兩顆感測器上電，序列監控應印出 <code>SCD41:OK SHT31:OK</code></li>
+          <li><strong>再接 MAX6675</strong>：確認爐溫讀值 ≈ 室溫 ±3 °C</li>
+          <li><strong>最後上 12 V</strong>：測風扇，並確認未執行 <code>analogWrite</code> 前風扇不轉</li>
+          <li><strong>接 Pi</strong>：USB 序列，確認 mode 由 FALLBACK 轉為 PI</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>沒硬體也能先驗證</h3>
+        <p>兩支靜態驗證腳本可在沒有硬體時抓出「編譯得過但行為錯」的問題：</p>
+        <div class="calc">R4/matrix_mini_r4/驗證韌體.py
+PI5/驗證資料流.py</div>
+        <p style="margin-top:.9rem;margin-bottom:0">前者比對本地 FSM 門檻是否與
+           <code>pi_fsm.py</code> 一致（不一致會讓降級瞬間轉速跳變）、腳位有無撞到 PS2；
+           後者驗證韌體 → pi_fsm → Grafana 的欄位契約。另有 Wokwi 模擬可跑控制邏輯。</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    智慧香爐 P0 · 接線圖與電氣驗證 · rev E · 2026-08-02<br>
+    完整計算過程見 電路設計/電氣驗證計算.md · 操作步驟見 P0接線與驗證指南.md
+  </footer>
+
+</div>
