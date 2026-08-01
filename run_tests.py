@@ -75,7 +75,23 @@ def main():
                     help="列出每條通過的規則")
     ap.add_argument("-q", "--quiet", action="store_true",
                     help="只輸出摘要與失敗項（與 pytest -q 相近）")
+    ap.add_argument("--scope", choices=["all", "core", "later"], default="all",
+                    help="all=全部（預設）｜core=當前里程碑 P0/P1｜later=P3 機構。"
+                         "範圍定義在 CAD自檢/mech_params.py，不是略過測試，"
+                         "而是換個視角看同一組規則")
     args = ap.parse_args()
+
+    # 讀取里程碑範圍定義
+    scope_set = None
+    if args.scope != "all":
+        try:
+            sys.path.insert(0, str(ROOT / "CAD自檢"))
+            import mech_params as _P
+            scope_set = _P.SCOPE_CORE if args.scope == "core" else _P.SCOPE_LATER
+            print(f"【範圍：{args.scope}】里程碑 {_P.MILESTONE}"
+                  f"（{len(scope_set)} 條規則；其餘不在本次範圍，非略過）")
+        except Exception as e:
+            print(f"讀不到範圍定義，改跑全部：{e}")
 
     files = find_test_files(args.targets or ["."])
     if not files:
@@ -105,6 +121,8 @@ def main():
 
         for name, fn in tests:
             if args.filter and args.filter not in name:
+                continue
+            if scope_set is not None and name not in scope_set:
                 continue
             total += 1
             buf = io.StringIO()
