@@ -13,6 +13,13 @@
   F. 介面一致性：煙道尺寸在燃燒艙／集煙罩／風扇座三處必須相同
   G. ★實際算繪★（需安裝 OpenSCAD）：manifold、浮空塊、算繪警告
      浮空塊只有算繪才抓得到——參數再怎麼算都看不出「這塊沒連上」
+  H. ★組裝干涉★：兩兩零件求交集並量體積 ＋ ★落座檢查★
+     干涉抓「不該碰卻碰了」；落座抓「該貼合卻浮空」——
+     兩者方向相反，都要查。零件浮空時交集體積也是 0，
+     光看干涉會誤判為正常。
+     單件檢查全過，組裝起來卻互相穿透——畫面上是 z-fighting 破圖，
+     實體是根本裝不上去。這一層是 2026-08-02 補的，補之前風扇座
+     整個埋在燃燒艙裡而所有檢查都通過。
 
 執行：python3 驗證CAD.py
 """
@@ -23,6 +30,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 SCAD = Path(__file__).parent / "incense_burner.scad"
@@ -222,14 +230,60 @@ def check_thermal(p):
         notes.append(f"E: 爐盆空氣間隙 {p['AIR_GAP']}mm、"
                      f"燃燒艙↔電子艙隔熱層 {p['ISO_GAP']}mm、"
                      f"對流縫寬 {p['ISO_VENT_W']}mm ✓")
-    notes.append("E: ★材料提醒★ 爐面常態 60–80°C（聯鎖門檻），"
+    notes.append("E: ★材料提醒★ 熱電偶位置預估 120°C（聯鎖門檻 150/130 為臨時值，未實測），"
                  "燃燒艙與集煙罩請用 ABS/ASA/PETG，勿用 PLA（HDT 55–60°C）")
+
+
+def duct_z_ranges(p):
+    """
+    算出煙道開口在【全域 z 座標】的位置。
+
+    ★為什麼要做這個★
+      各零件的開口都寫在自己的局部座標裡，尺寸一致不代表位置對得上。
+      2026-08-02 就踩到：燃燒艙開口 z=96–126、集煙罩開口 z=138–168，
+      相差 12mm 完全沒交集，煙從罩子出來接不到風扇——
+      而當時所有檢查（尺寸一致、manifold、干涉）全數通過。
+    """
+    BH, CH, DH = p["BASE_H"], p["CHMB_H"], p["DUCT_H"]
+    dz = p["DUCT_Z_HOOD"]
+    body_h = p["FAN_H"] + p["WALL"] * 2
+    out = {}
+    # 集煙罩：煙道唯一的開口位置
+    out["hood"] = (BH + CH + dz, BH + CH + dz + DH)
+    # 風扇座：本體局部 y → 全域 z，開口在本體正中
+    tz = BH + CH + dz + DH / 2 - body_h / 2
+    out["fan_mount"] = (tz + body_h / 2 - DH / 2, tz + body_h / 2 + DH / 2)
+    return out
+
+
+def check_duct_alignment(p):
+    """煙道開口必須在 z 方向重疊，否則氣流路徑是斷的。"""
+    r = duct_z_ranges(p)
+    pairs = [("hood", "fan_mount")]
+    ok_pairs = []
+    for a, b in pairs:
+        lo = max(r[a][0], r[b][0])
+        hi = min(r[a][1], r[b][1])
+        ov = hi - lo
+        if ov <= 0:
+            problems.append(
+                f"F: 煙道開口 {a}(z {r[a][0]:.0f}–{r[a][1]:.0f}) 與 "
+                f"{b}(z {r[b][0]:.0f}–{r[b][1]:.0f}) 沒有交集，相差 {-ov:.0f}mm"
+                f"——氣流路徑是斷的，煙抽不出去")
+        elif ov < p["DUCT_H"] * 0.5:
+            warnings.append(
+                f"F: 煙道 {a}×{b} 只重疊 {ov:.0f}mm（開口高 {p['DUCT_H']}mm），"
+                f"有效流通面積不足一半")
+        else:
+            ok_pairs.append(f"{a}×{b} 重疊 {ov:.0f}mm")
+    if ok_pairs and len(ok_pairs) == len(pairs):
+        notes.append("F: 煙道開口 z 方向對齊 — " + "、".join(ok_pairs) + " ✓")
 
 
 def check_duct(src, p):
     """煙道尺寸在三個零件中必須一致，否則接不起來。"""
     body = strip_comments(src)
-    for mod in ("chamber", "hood", "fan_mount"):
+    for mod in ("hood", "fan_mount"):
         m = re.search(rf"module\s+{mod}\s*\(.*?\n\}}", body, re.S)
         if not m:
             problems.append(f"F: 找不到模組 {mod}")
@@ -255,6 +309,11 @@ def check_duct(src, p):
 
 
 # ── G. 實際算繪（OpenSCAD）──────────────────────────────────
+# 檢查用的算繪精度。干涉與 manifold 只看拓樸與粗略重疊，
+# 不需要細緻曲面——$fn 由 48 降到 16 可快 3 倍以上。
+# 出圖（給人看的）仍用檔案裡的預設值。
+CHECK_FN = 16
+
 OPENSCAD_CANDIDATES = [
     "/mnt/c/Program Files/OpenSCAD/openscad.exe",
     "/mnt/c/Program Files (x86)/OpenSCAD/openscad.exe",
@@ -293,7 +352,7 @@ def check_render():
     for part in PARTS:
         out = tmp / f"{part}.stl"
         cmd = [exe, "-o", win_path(out) if is_exe else str(out),
-               "-D", f'part="{part}"',
+               "-D", f"$fn={CHECK_FN}", "-D", f'part="{part}"',
                win_path(SCAD) if is_exe else str(SCAD)]
         try:
             r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
@@ -366,6 +425,189 @@ def check_render():
             notes.append("G: 5 個零件皆為單一 manifold 實體（Volumes=2）✓")
 
 
+# ── H. 組裝干涉 ─────────────────────────────────────────────
+# 允許的重疊：定位榫插入榫孔、法蘭插入牆面、掛耳貼合，都是刻意設計的配合。
+# 超過門檻才算干涉。單位 mm³。
+INTERSECT_BUDGET = {
+    ("base", "chamber"):      3000,   # 4 根定位榫（⌀8×6）＋台階落座
+    ("chamber", "hood"):      3000,   # 同上
+    ("hood", "fan_mount"):    2500,   # 煙道法蘭插進集煙罩墊台
+                                      #   理論值 = (50.8×34.8 − 46×30) × 4mm 插深 ≈ 1,551mm³
+                                      #   容許值只留約 1.6 倍——太寬鬆就抓不到真正的穿透
+    ("base", "sensor_pod"):   1500,   # 掛耳貼合
+}
+DEFAULT_BUDGET = 200                  # 未列出的組合，實質上不該相碰
+
+# 應該互相貼合的組合：(A, B, 軸, 說明)
+# 軸 = 0/1/2 對應 x/y/z。檢查兩者在該軸上的間隙是否接近 0。
+# ★為什麼需要這條★ 榫柱插進榫孔時交集是 0（孔比榫大），
+#   但零件整個浮空 5mm 時交集也是 0——只查干涉分不出這兩種情況。
+MATING = [
+    ("base", "chamber",     2, "燃燒艙落座於底座頂緣台階"),
+    ("chamber", "hood",     2, "集煙罩落座於燃燒艙頂緣台階"),
+    ("base", "sensor_pod",  1, "感測器艙掛耳貼合底座前壁"),
+]
+MATING_TOL = 0.6                      # 容許間隙（mm）
+
+
+def mesh_tris(path):
+    """讀 STL 回傳三角形串列（純標準函式庫）。"""
+    import struct
+    data = Path(path).read_bytes()
+    tris = []
+    if len(data) >= 84:
+        n = struct.unpack_from("<I", data, 80)[0]
+        if len(data) == 84 + n * 50:
+            for i in range(n):
+                v = struct.unpack_from("<9f", data, 84 + i * 50 + 12)
+                tris.append(((v[0], v[1], v[2]), (v[3], v[4], v[5]), (v[6], v[7], v[8])))
+            return tris
+    cur = []
+    for line in data.decode("utf-8", errors="ignore").splitlines():
+        s = line.strip()
+        if s.startswith("vertex"):
+            cur.append(tuple(float(x) for x in s.split()[1:4]))
+            if len(cur) == 3:
+                tris.append(tuple(cur)); cur = []
+    return tris
+
+
+def aabb(tris):
+    """軸對齊包圍盒。"""
+    xs = [v[0] for t in tris for v in t]
+    ys = [v[1] for t in tris for v in t]
+    zs = [v[2] for t in tris for v in t]
+    return (min(xs), min(ys), min(zs), max(xs), max(ys), max(zs))
+
+
+def aabb_overlap(a, b, pad=0.0):
+    """兩個包圍盒的重疊體積。0 代表絕對不可能干涉，可跳過昂貴的布林運算。"""
+    ov = 1.0
+    for i in range(3):
+        lo = max(a[i], b[i]) - pad
+        hi = min(a[i + 3], b[i + 3]) + pad
+        if hi <= lo:
+            return 0.0
+        ov *= (hi - lo)
+    return ov
+
+
+def mesh_volume(path):
+    """用純標準函式庫算 STL 體積（散度定理）。與 CAD自檢/verify_stl.py 同法。"""
+    import struct
+    data = Path(path).read_bytes()
+    tris = []
+    if len(data) >= 84:
+        n = struct.unpack_from("<I", data, 80)[0]
+        if len(data) == 84 + n * 50:
+            for i in range(n):
+                v = struct.unpack_from("<9f", data, 84 + i * 50 + 12)
+                tris.append(((v[0], v[1], v[2]), (v[3], v[4], v[5]), (v[6], v[7], v[8])))
+    if not tris:
+        cur = []
+        for line in data.decode("utf-8", errors="ignore").splitlines():
+            s = line.strip()
+            if s.startswith("vertex"):
+                cur.append(tuple(float(x) for x in s.split()[1:4]))
+                if len(cur) == 3:
+                    tris.append(tuple(cur)); cur = []
+    if not tris:
+        return 0.0
+    tot = 0.0
+    for (a, b, c) in tris:
+        tot += (a[0]*(b[1]*c[2]-b[2]*c[1]) - a[1]*(b[0]*c[2]-b[2]*c[0])
+                + a[2]*(b[0]*c[1]-b[1]*c[0])) / 6.0
+    return abs(tot)
+
+
+def check_interference():
+    exe = find_openscad()
+    if not exe:
+        warnings.append("H: 找不到 OpenSCAD，跳過組裝干涉檢查")
+        return
+    is_exe = exe.endswith(".exe")
+    tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
+
+    # ── 先取各零件定位後的包圍盒（5 次算繪，便宜）──
+    # ★為什麼要預篩★ 兩兩求交集是 CGAL 布林運算，10 組跑不完。
+    #   包圍盒不重疊就絕對不可能干涉，可直接跳過——只有真正靠近的才做精算。
+    def render(args, out):
+        cmd = [exe, "-o", win_path(out) if is_exe else str(out),
+               "-D", f"$fn={CHECK_FN}", *args,
+               win_path(SCAD) if is_exe else str(SCAD)]
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        except Exception:
+            pass
+        return out
+
+    # 平行算繪：這些是互相獨立的外部程序，等待時間可以重疊
+    boxes = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {nm: ex.submit(render, ['-D', 'part="placed"', '-D', f'PAIR_A="{nm}"'],
+                              tmp / f"p_{nm}.stl") for nm in PARTS}
+        for nm, f in futs.items():
+            out = f.result()
+            if out.exists():
+                boxes[nm] = aabb(mesh_tris(out))
+
+    # 包圍盒不重疊 → 絕不可能干涉，跳過昂貴的布林運算
+    todo, skipped = [], 0
+    for i, a in enumerate(PARTS):
+        for b in PARTS[i + 1:]:
+            if a in boxes and b in boxes and aabb_overlap(boxes[a], boxes[b]) == 0:
+                skipped += 1
+            else:
+                todo.append((a, b))
+
+    # ── 落座檢查（用已算好的包圍盒，不需額外算繪）──
+    bad = 0
+    seated = []
+    for a, b, axis, why in MATING:
+        if a not in boxes or b not in boxes:
+            continue
+        A, B = boxes[a], boxes[b]
+        # 兩者在該軸上的間隙：負值代表重疊，正值代表分開
+        gap = max(B[axis] - A[axis + 3], A[axis] - B[axis + 3])
+        名 = "xyz"[axis]
+        if gap > MATING_TOL:
+            problems.append(
+                f"H: {a} 與 {b} 在 {名} 軸相距 {gap:.1f}mm 沒有貼合"
+                f"（{why}）——零件浮空，組裝時會晃動或根本裝不上")
+            bad += 1
+        else:
+            seated.append(f"{a}↔{b}({名} 間隙 {max(gap,0):.1f}mm)")
+    if seated:
+        notes.append(f"H: 落座檢查 {len(seated)} 組貼合正常 — " + "、".join(seated) + " ✓")
+
+    rows, bad2 = [], 0
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {(a, b): ex.submit(
+            render, ['-D', 'part="interference"',
+                     '-D', f'PAIR_A="{a}"', '-D', f'PAIR_B="{b}"'],
+            tmp / f"x_{a}_{b}.stl") for a, b in todo}
+        for (a, b), f in futs.items():
+            out = f.result()
+            vol = mesh_volume(out) if out.exists() else 0.0
+            budget = INTERSECT_BUDGET.get((a, b),
+                     INTERSECT_BUDGET.get((b, a), DEFAULT_BUDGET))
+            if vol > budget:
+                problems.append(
+                    f"H: {a} 與 {b} 互相穿透 {vol:,.0f}mm³（容許 {budget:,}）"
+                    f"——實體組裝不起來，算繪上會是 z-fighting 破圖")
+                bad2 += 1
+            elif vol > 0:
+                rows.append(f"{a}×{b} {vol:,.0f}mm³")
+    bad += bad2
+    shutil.rmtree(tmp, ignore_errors=True)
+    total = len(PARTS) * (len(PARTS) - 1) // 2
+    if not bad:
+        notes.append(f"H: 兩兩干涉檢查 {total} 組全數通過"
+                     f"（包圍盒預篩跳過 {skipped} 組，精算 {total-skipped} 組）✓")
+        if rows:
+            notes.append("H: 刻意配合的重疊（榫/法蘭/掛耳）— " + "、".join(rows))
+
+
 def main():
     if not SCAD.exists():
         print(f"找不到 {SCAD}")
@@ -383,7 +625,9 @@ def main():
         check_bed(p)
         check_thermal(p)
         check_duct(src, p)
+        check_duct_alignment(p)
         check_render()
+        check_interference()
 
     print("=" * 70)
     for n in notes:

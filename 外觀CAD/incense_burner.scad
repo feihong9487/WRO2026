@@ -47,6 +47,10 @@ part = "assembly";  // ["assembly", "base", "chamber", "hood", "fan_mount", "sen
 SECTION = false;    // true = 剖半
 SECTION_AXIS = "y"; // "x" 或 "y"
 
+// 干涉檢查用（part="interference" 時生效）
+PAIR_A = "base";
+PAIR_B = "chamber";
+
 // ═══════════════════════════════════════════════════════════════════════════
 // 列印參數
 // ═══════════════════════════════════════════════════════════════════════════
@@ -100,8 +104,13 @@ FAN_SCREW_D = 3.2;              // M3 通孔
 FAN_SCREW_S = 42;               // 螺絲孔間距（5015 常見值，請實測確認）
 
 // 煙道
+// ★煙道只開在集煙罩上★ 煙從爐盆上升、在罩內聚集，那裡才是該抽的位置。
+//   原本燃燒艙也開了一個，位置在爐盆側面（煙不會往那走），
+//   而且與罩子的開口差 12mm 完全對不上——2026-08-02 移除。
 DUCT_W      = 46;               // 煙道寬
 DUCT_H      = 30;               // 煙道高
+DUCT_Z_HOOD = 6;                // 開口下緣在集煙罩局部座標的高度
+PAD_MARGIN  = 7;                // 風扇安裝墊台四周比開口多出的邊
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 電子元件（★以下尺寸多為估值，拿到實體請實測後修改★）
@@ -326,10 +335,6 @@ module chamber() {
         translate([CHMB_W / 2, CHMB_D / 2 - well_d / 2 - 2, ISO_GAP + FLOOR + 6])
             rotate([-90, 0, 0]) cylinder(h = 20, d = 6);
 
-        // ── 後方煙道開口：連到風扇座 ──
-        translate([CHMB_W / 2 - DUCT_W / 2, CHMB_D - WALL - 0.5, CHMB_H - DUCT_H - 8])
-            cube([DUCT_W, WALL + 1, DUCT_H]);
-
         // ── 中央走線孔（對齊底座頂面）──
         translate([CHMB_W / 2, CHMB_D / 2, -0.1])
             cylinder(h = ISO_GAP + FLOOR + 0.2, d = 26);
@@ -353,11 +358,14 @@ module hood() {
     OVER = 2;
 
     difference() {
-        // 外殼
-        hull() {
-            rrect(CHMB_W, CHMB_D, 0.1, CORNER_R);
-            translate([(CHMB_W - HOOD_TOP_W) / 2, (CHMB_D - HOOD_TOP_W) / 2, HOOD_H - 0.1])
-                rrect(HOOD_TOP_W, HOOD_TOP_W, 0.1, CORNER_R * 0.6);
+        union() {
+            // 外殼
+            hull() {
+                rrect(CHMB_W, CHMB_D, 0.1, CORNER_R);
+                translate([(CHMB_W - HOOD_TOP_W) / 2, (CHMB_D - HOOD_TOP_W) / 2, HOOD_H - 0.1])
+                    rrect(HOOD_TOP_W, HOOD_TOP_W, 0.1, CORNER_R * 0.6);
+            }
+            hood_pad();
         }
 
         // 內腔（沿同一錐度延伸到外殼之外）
@@ -371,10 +379,22 @@ module hood() {
         // 底面定位榫孔（母）
         tenons_female(CHMB_W, CHMB_D, 0);
 
-        // 後方煙道出口：對齊燃燒艙的開口
-        translate([CHMB_W / 2 - DUCT_W / 2, CHMB_D - WALL * 3 - 0.5, 4])
-            cube([DUCT_W, WALL * 3 + 1, DUCT_H]);
+        // 後方煙道出口（穿透墊台與罩壁）
+        translate([CHMB_W / 2 - DUCT_W / 2, CHMB_D - 30, DUCT_Z_HOOD])
+            cube([DUCT_W, 40, DUCT_H]);
     }
+}
+
+// 集煙罩背面的平面安裝墊台
+// ★為什麼需要★ 罩子是錐面，風扇法蘭貼上去只會點接觸、漏氣。
+//   墊台把安裝面拉回與燃燒艙後壁同一個垂直平面（y = CHMB_D）。
+module hood_pad() {
+    pw = DUCT_W + PAD_MARGIN * 2;
+    ph = DUCT_H + PAD_MARGIN * 2;
+    // 錐面在墊台範圍內最內縮的位置（開口上緣）
+    y_inner = CHMB_D - (CHMB_D - HOOD_TOP_W) * (DUCT_Z_HOOD + ph) / HOOD_H / 2 - 2;
+    translate([CHMB_W / 2 - pw / 2, y_inner, DUCT_Z_HOOD - PAD_MARGIN])
+        cube([pw, CHMB_D - y_inner, ph]);
 }
 // ═══════════════════════════════════════════════════════════════════════════
 // 零件 4：風扇座（5015 鼓風機）
@@ -450,28 +470,60 @@ module sensor_pod() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 組裝視圖
-// ═══════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// 組裝定位
+// ═══════════════════════════════════════════════════════════════
+// ★所有零件的擺放位置集中在 place()★
+//   assembly() 與干涉檢查共用同一組變換——這是單一真相來源。
+//   若分開寫，改了組裝卻忘了改檢查，干涉檢查就會驗到錯的位置。
+
+PARTS_LIST = ["base", "chamber", "hood", "fan_mount", "sensor_pod"];
+PART_COLOR = ["#5b6670", "#8b6f47", "#a8825c", "#3f4a52", "#2f6f5a"];
+
+// 風扇座定位計算（外掛在燃燒艙後方）
+FAN_BODY_T   = FAN_T + WALL * 2;                  // 本體厚
+FAN_FLANGE_H = 10;                                // 煙道法蘭高
+FAN_PENETR   = 4;                                 // 法蘭插入燃燒艙後壁的深度
+CHMB_BACK_Y  = (BASE_D - CHMB_D) / 2 + CHMB_D;    // 燃燒艙後壁外緣
+
+module part_by_name(name) {
+    if      (name == "base")       base();
+    else if (name == "chamber")    chamber();
+    else if (name == "hood")       hood();
+    else if (name == "fan_mount")  fan_mount();
+    else if (name == "sensor_pod") sensor_pod();
+}
+
+module place(name, explode = 0) {
+    if (name == "base")
+        children();
+    else if (name == "chamber")
+        translate([(BASE_W - CHMB_W) / 2, (BASE_D - CHMB_D) / 2, BASE_H + explode])
+            children();
+    else if (name == "hood")
+        translate([(BASE_W - CHMB_W) / 2, (BASE_D - CHMB_D) / 2,
+                   BASE_H + CHMB_H + explode * 2])
+            children();
+    else if (name == "fan_mount")
+        // rotate([90,0,0]) 使局部 +z → 全域 -y，所以 y 必須往後推整個深度，
+        // 只留 FAN_PENETR 讓法蘭插進燃燒艙後壁。
+        // ★原本少推這一段，30.8mm 的風扇座整個埋在燃燒艙裡（2026-08-02 修正）★
+        // z：對齊集煙罩煙道開口的中心（rotate 後局部 y → 全域 z）
+        translate([BASE_W / 2 - (FAN_W + WALL * 2) / 2,
+                   CHMB_BACK_Y + FAN_BODY_T + FAN_FLANGE_H - FAN_PENETR + explode,
+                   BASE_H + CHMB_H + DUCT_Z_HOOD + DUCT_H / 2 - (FAN_H + WALL * 2) / 2])
+            rotate([90, 0, 0]) children();
+    else if (name == "sensor_pod")
+        // 本體在底座前方外側，只有掛耳貼上前壁
+        translate([BASE_W / 2 - POD_W / 2, -POD_D - explode, BASE_H - POD_H - 2])
+            children();
+}
+
+module placed(name, explode = 0) { place(name, explode) part_by_name(name); }
+
 module assembly(explode = 0) {
-    color("#5b6670") base();
-
-    translate([(BASE_W - CHMB_W) / 2, (BASE_D - CHMB_D) / 2, BASE_H + explode])
-        color("#8b6f47") chamber();
-
-    translate([(BASE_W - CHMB_W) / 2, (BASE_D - CHMB_D) / 2,
-               BASE_H + CHMB_H + explode * 2])
-        color("#a8825c") hood();
-
-    // 風扇座掛在燃燒艙後方
-    translate([BASE_W / 2 - (FAN_W + WALL * 2) / 2,
-               BASE_D - (BASE_D - CHMB_D) / 2 + explode,
-               BASE_H + CHMB_H - DUCT_H - 8])
-        rotate([90, 0, 0]) color("#3f4a52") fan_mount();
-
-    // 感測器艙掛在前方
-    translate([BASE_W / 2 - POD_W / 2, -POD_D + WALL - explode, BASE_H - POD_H + 8])
-        color("#2f6f5a") sensor_pod();
+    for (i = [0 : len(PARTS_LIST) - 1])
+        color(PART_COLOR[i]) placed(PARTS_LIST[i], explode);
 
     // 金屬爐盆（示意，非列印件）
     translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H - BOWL_H + explode])
@@ -482,6 +534,12 @@ module assembly(explode = 0) {
             }
 }
 
+// 兩零件的干涉體積：驗證器匯成 STL 後量體積。
+// 體積 > 0 代表兩件互相穿透，實體組裝不起來（也就是畫面上的 z-fighting 破圖）。
+module interference(a, b) {
+    intersection() { placed(a); placed(b); }
+}
+
 // 列印排版：所有零件平鋪，檢查是否放得進列印床
 module print_plate() {
     base();
@@ -489,19 +547,35 @@ module print_plate() {
     translate([BASE_W + 8, 0, 0]) hood();
     translate([BASE_W + 8, CHMB_D + 8, 0]) fan_mount();
     translate([BASE_W + 8, CHMB_D + 90, 0]) sensor_pod();
-    // 列印床邊界（僅供目視對照）
     #translate([-2, -2, -1]) cube([BED, BED, 0.5]);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 主輸出
 // ═══════════════════════════════════════════════════════════════════════════
-if      (part == "assembly")    assembly(0);
-else if (part == "exploded")    assembly(35);
-else if (part == "base")        base();
-else if (part == "chamber")     chamber();
-else if (part == "hood")        hood();
-else if (part == "fan_mount")   fan_mount();
-else if (part == "sensor_pod")  sensor_pod();
-else if (part == "print_plate") print_plate();
-else                            assembly(0);
+module dispatch() {
+    if      (part == "assembly")     assembly(0);
+    else if (part == "exploded")     assembly(35);
+    else if (part == "base")         base();
+    else if (part == "chamber")      chamber();
+    else if (part == "hood")         hood();
+    else if (part == "fan_mount")    fan_mount();
+    else if (part == "sensor_pod")   sensor_pod();
+    else if (part == "print_plate")  print_plate();
+    else if (part == "placed")       placed(PAIR_A);           // 定位後單件（取包圍盒）
+    else if (part == "interference") interference(PAIR_A, PAIR_B);
+    else if (part == "none")         ;                          // 供 include 時不算繪
+    else                             assembly(0);
+}
+
+if (SECTION) {
+    difference() {
+        dispatch();
+        if (SECTION_AXIS == "y")
+            translate([-100, BASE_D / 2, -100]) cube([600, 600, 600]);
+        else
+            translate([BASE_W / 2, -100, -100]) cube([600, 600, 600]);
+    }
+} else {
+    dispatch();
+}
