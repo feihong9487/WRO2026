@@ -13,6 +13,13 @@
   F. 介面一致性：煙道尺寸在燃燒艙／集煙罩／風扇座三處必須相同
   G. ★實際算繪★（需安裝 OpenSCAD）：manifold、浮空塊、算繪警告
      浮空塊只有算繪才抓得到——參數再怎麼算都看不出「這塊沒連上」
+  I. ★列印性★：從 STL 三角形法向量算懸空面積（不需額外算繪）
+     懸空 >45° 需支撐材——印得出來但表面差、要花時間清。
+     這是「幾何合法」與「實際做得出來」之間的差距。
+  J. ★開口遮擋★：功能性開口前方不可被其他零件擋住
+     進氣柵格被感測器艙蓋住 → 對流失效，但干涉檢查不會報（沒有穿透）。
+  K. ★回歸基準★：與上次的體積／面數／包圍盒比對
+     改了 A 參數卻讓 B 零件默默變形，是參數化設計最難察覺的錯。
   H. ★組裝干涉★：兩兩零件求交集並量體積 ＋ ★落座檢查★
      干涉抓「不該碰卻碰了」；落座抓「該貼合卻浮空」——
      兩者方向相反，都要查。零件浮空時交集體積也是 0，
@@ -24,6 +31,7 @@
 執行：python3 驗證CAD.py
 """
 
+import math
 import os
 import re
 import shutil
@@ -257,7 +265,28 @@ def duct_z_ranges(p):
 
 
 def check_duct_alignment(p):
-    """煙道開口必須在 z 方向重疊，否則氣流路徑是斷的。"""
+    """
+    煙道開口必須在 z 方向重疊，且必須落在集煙罩的實體高度內。
+
+    ★注意★ 風扇位置刻意從 DUCT_Z_HOOD 推導，所以兩者不可能錯開——
+      這是「用設計消除錯誤」而非「靠檢查抓錯誤」，比較可靠。
+      但 DUCT_Z_HOOD 本身可能超出罩子高度，那才是真正要查的。
+    """
+    dz, DH, HH = p["DUCT_Z_HOOD"], p["DUCT_H"], p["HOOD_H"]
+    if dz < p["WALL"]:
+        problems.append(f"F: 煙道開口下緣 z={dz} 太靠近集煙罩底面，"
+                        f"至少要留一個壁厚 {p['WALL']:.1f}mm")
+    if dz + DH > HH - p["WALL"]:
+        problems.append(
+            f"F: 煙道開口上緣 z={dz + DH} 超出集煙罩可用高度 "
+            f"{HH - p['WALL']:.1f}mm（罩高 {HH}）——開口會破出頂面或壁太薄")
+    # 開口所在高度，罩子的錐面是否還夠寬容納
+    w_at_top = p["CHMB_W"] - (p["CHMB_W"] - p["HOOD_TOP_W"]) * (dz + DH) / HH
+    need = p["DUCT_W"] + p["PAD_MARGIN"] * 2
+    if w_at_top < need:
+        problems.append(
+            f"F: 煙道開口上緣處集煙罩只剩 {w_at_top:.0f}mm 寬，"
+            f"放不下 {need:.0f}mm 的安裝墊台")
     r = duct_z_ranges(p)
     pairs = [("hood", "fan_mount")]
     ok_pairs = []
@@ -313,6 +342,7 @@ def check_duct(src, p):
 # 不需要細緻曲面——$fn 由 48 降到 16 可快 3 倍以上。
 # 出圖（給人看的）仍用檔案裡的預設值。
 CHECK_FN = 16
+CLEAR_HINT = 12      # 與 SCAD 的 CLEAR_MM 一致
 
 OPENSCAD_CANDIDATES = [
     "/mnt/c/Program Files/OpenSCAD/openscad.exe",
@@ -338,28 +368,38 @@ def win_path(p: Path) -> str:
 
 
 def check_render():
+    """回傳 {零件名: 三角形串列}，供 I/K 檢查重用，避免重複算繪。"""
     exe = find_openscad()
     if not exe:
         warnings.append("G: 找不到 OpenSCAD，跳過實際算繪檢查"
                         "（裝了之後這一關才會驗證 manifold 與浮空塊）")
-        return
+        return {}
 
     is_exe = exe.endswith(".exe")
     # ★暫存目錄必須放在 .scad 旁邊★
     #   Windows 的 openscad.exe 看不到 WSL 的 /tmp，只認得 /mnt/<碟> 對應的路徑
     tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
     results = []
-    for part in PARTS:
+    meshes = {}          # 供列印性與回歸基準重用，不重複算繪
+    def _one(part):
         out = tmp / f"{part}.stl"
         cmd = [exe, "-o", win_path(out) if is_exe else str(out),
                "-D", f"$fn={CHECK_FN}", "-D", f'part="{part}"',
                win_path(SCAD) if is_exe else str(SCAD)]
         try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+            return part, out, r.returncode, r.stdout + r.stderr
         except Exception as e:
-            problems.append(f"G: {part} 算繪失敗 — {e}")
+            return part, out, -1, f"EXC {e}"
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        rendered = list(ex.map(_one, PARTS))
+
+    for part, out, rc, log in rendered:
+        if rc == -1:
+            problems.append(f"G: {part} 算繪失敗 — {log}")
             continue
-        log = r.stdout + r.stderr
+        r = type("R", (), {"returncode": rc})()
         simple = re.search(r"Simple:\s+(\w+)", log)
         vols = re.search(r"Volumes:\s+(\d+)", log)
         facets = re.search(r"Facets:\s+(\d+)", log)
@@ -384,6 +424,11 @@ def check_render():
         results.append((part, simple.group(1) if simple else "?",
                         int(vols.group(1)) if vols else -1,
                         int(facets.group(1)) if facets else -1))
+        if out.exists():
+            try:
+                meshes[part] = mesh_tris(out)
+            except Exception:
+                pass
 
     # ── 產生可目視的算繪圖 ──
     # ★為什麼要出圖★ 集煙罩的投香口曾經被封死，而參數檢查與 Volumes=2
@@ -422,7 +467,8 @@ def check_render():
         notes.append("G: OpenSCAD 實際算繪 — " + "、".join(
             f"{n}(V={v},F={f})" for n, s, v, f in results))
         if all(v == 2 for _, _, v, _ in results):
-            notes.append("G: 5 個零件皆為單一 manifold 實體（Volumes=2）✓")
+            notes.append(f"G: {len(results)} 個零件皆為單一 manifold 實體（Volumes=2）✓")
+    return meshes
 
 
 # ── H. 組裝干涉 ─────────────────────────────────────────────
@@ -520,11 +566,332 @@ def mesh_volume(path):
     return abs(tot)
 
 
+# ── I. 列印性 ─────────────────────────────────────────────
+OVERHANG_DEG = 45        # 超過此角度（自垂直算起）的向下面需要支撐
+
+# ★列印方位★ 必須先旋轉到實際上機的姿態再分析懸空，否則結論無意義。
+#   例：集煙罩設計上是開口朝上，實際列印時倒過來——設計方位下的「懸空」
+#   在列印方位下可能完全不存在，反之亦然。
+#   數值與 incense_burner.scad 檔頭的「列印方向」說明必須一致。
+PRINT_ORIENT = {
+    "base":       (0, 0, 0),      # 底面朝下
+    "chamber":    (0, 0, 0),      # 底面朝下
+    "hood":       (180, 0, 0),    # ★開口朝下倒印★
+    "fan_mount":  (0, 0, 0),      # 背面朝下
+    "sensor_pod": (0, 0, 0),      # 背面朝下
+}
+
+# 容許的懸空面積。這些數字不是憑空定的：
+#   平面橋接（兩端有牆支撐、跨距 <50mm）切片器處理得了，不需支撐；
+#   大面積無支撐天花板才是真問題。目前以「單件表面積的 8%」為基準，
+#   超過就值得檢視列印方位或加倒角。
+# ★區分兩種懸空★ 它們的處理方式完全不同：
+#   近水平天花板（法向量幾乎正下）→ 兩端有牆就是【橋接】，切片器印得出來，
+#                                   只要跨距別太長。
+#   斜向懸空 45–85°              → 真正需要支撐材，表面也會拉絲。
+#   把兩者混在一起算，會把可印的設計誤判為不可印（第一版就犯了這個錯）。
+FLAT_NZ = -0.95              # 法向量 z 低於此視為近水平（橋接）
+SLOPED_RATIO_MAX = 0.04      # 斜向懸空佔表面積上限
+FLAT_RATIO_WARN  = 0.25      # 近水平面積過大時提醒檢視跨距
+MAX_BRIDGE_MM    = 50        # 橋接跨距上限。超過會下垂——
+                             # ★面積小不代表沒問題，跨距才是關鍵★
+
+
+def tri_area_normal(a, b, c):
+    """回傳 (面積, 單位法向量)。"""
+    u = (b[0]-a[0], b[1]-a[1], b[2]-a[2])
+    v = (c[0]-a[0], c[1]-a[1], c[2]-a[2])
+    n = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
+    m = math.sqrt(n[0]**2 + n[1]**2 + n[2]**2)
+    if m < 1e-12:
+        return 0.0, (0.0, 0.0, 0.0)
+    return m / 2.0, (n[0]/m, n[1]/m, n[2]/m)
+
+
+def rotate_tris(tris, deg_xyz):
+    """把網格旋轉到列印方位（依序繞 x、y、z）。"""
+    rx, ry, rz = (math.radians(d) for d in deg_xyz)
+    def rot(v):
+        x, y, z = v
+        if rx:
+            y, z = y*math.cos(rx) - z*math.sin(rx), y*math.sin(rx) + z*math.cos(rx)
+        if ry:
+            x, z = x*math.cos(ry) + z*math.sin(ry), -x*math.sin(ry) + z*math.cos(ry)
+        if rz:
+            x, y = x*math.cos(rz) - y*math.sin(rz), x*math.sin(rz) + y*math.cos(rz)
+        return (x, y, z)
+    return [tuple(rot(v) for v in t) for t in tris]
+
+
+def _rasterize(tl, cell):
+    """把三角形集合柵格化，回傳 (占用格集合, 原點, 網格尺寸)。"""
+    xs = [v[0] for t in tl for v in t[:3]]
+    ys = [v[1] for t in tl for v in t[:3]]
+    x0, y0 = min(xs), min(ys)
+    nx = int((max(xs) - x0) / cell) + 2
+    ny = int((max(ys) - y0) / cell) + 2
+    occ = set()
+    for (a, b, c, _) in tl:
+        # 只掃該三角形的包圍盒，再用重心座標判定
+        tx0 = int((min(a[0], b[0], c[0]) - x0) / cell)
+        tx1 = int((max(a[0], b[0], c[0]) - x0) / cell) + 1
+        ty0 = int((min(a[1], b[1], c[1]) - y0) / cell)
+        ty1 = int((max(a[1], b[1], c[1]) - y0) / cell) + 1
+        d = ((b[1]-c[1])*(a[0]-c[0]) + (c[0]-b[0])*(a[1]-c[1]))
+        if abs(d) < 1e-12:
+            continue
+        for ix in range(max(tx0, 0), min(tx1 + 1, nx)):
+            for iy in range(max(ty0, 0), min(ty1 + 1, ny)):
+                px = x0 + (ix + 0.5) * cell
+                py = y0 + (iy + 0.5) * cell
+                u = ((b[1]-c[1])*(px-c[0]) + (c[0]-b[0])*(py-c[1])) / d
+                v = ((c[1]-a[1])*(px-c[0]) + (a[0]-c[0])*(py-c[1])) / d
+                if u >= -1e-9 and v >= -1e-9 and u + v <= 1 + 1e-9:
+                    occ.add((ix, iy))
+    return occ, nx, ny
+
+
+def _max_inscribed(occ, nx, ny, cell):
+    """
+    多源 BFS 距離變換：從邊界往內擴，最深的格子代表最大內接圓半徑。
+
+    ★為什麼不用包圍盒★ 環狀天花板（例如 11mm 寬的落座台階）
+      包圍盒是 175mm，但橋接實際只要跨 11mm——用包圍盒會誤報。
+      內接圓半徑 ×2 才是真正的無支撐跨距。
+    """
+    from collections import deque
+    dist = {}
+    q = deque()
+    for (ix, iy) in occ:
+        # 邊界格：四鄰有一個是空的
+        if any((ix+dx, iy+dy) not in occ
+               for dx, dy in ((1,0), (-1,0), (0,1), (0,-1))):
+            dist[(ix, iy)] = 0
+            q.append((ix, iy))
+    while q:
+        ix, iy = q.popleft()
+        for dx, dy in ((1,0), (-1,0), (0,1), (0,-1)):
+            n = (ix+dx, iy+dy)
+            if n in occ and n not in dist:
+                dist[n] = dist[(ix, iy)] + 1
+                q.append(n)
+    if not dist:
+        return 0.0
+    return (max(dist.values()) + 1) * 2 * cell
+
+
+def flat_ceiling_spans(tris, z_min, cell=2.0):
+    """
+    找出各高度的近水平天花板，回傳 [(z, 無支撐跨距, 面積), ...]。
+
+    ★為什麼要量跨距而非面積★ 橋接能不能印取決於跨距：
+      11mm 寬的環狀天花板，面積再大也印得出來；
+      151mm 的整片樓板必定下垂。
+    跨距＝該高度平面區域的最大內接圓直徑（見 _max_inscribed）。
+    """
+    from collections import defaultdict
+    lvl = defaultdict(list)
+    for (a, b, c) in tris:
+        area, n = tri_area_normal(a, b, c)
+        if area == 0 or n[2] > FLAT_NZ:
+            continue
+        z = (a[2] + b[2] + c[2]) / 3
+        if z - z_min < 0.2:
+            continue
+        lvl[round(z, 1)].append((a, b, c, area))
+
+    out = []
+    for z, tl in lvl.items():
+        area = sum(x[3] for x in tl)
+        if area < 100:            # 太小的面不值得算
+            continue
+        occ, nx, ny = _rasterize(tl, cell)
+        if not occ:
+            continue
+        out.append((z, _max_inscribed(occ, nx, ny, cell), area))
+    return sorted(out, key=lambda r: -r[1])
+
+
+def total_area(tris):
+    return sum(tri_area_normal(*t)[0] for t in tris)
+
+
+def overhang_area(tris, z_min, deg=OVERHANG_DEG):
+    """
+    回傳 (斜向懸空面積, 近水平天花板面積)。
+
+    判準以法向量 n.z 分段：
+      n.z >= -cos(45°)        垂直到 45° 斜面 → 自支撐，不計
+      -0.95 < n.z < -0.707    斜向懸空       → ★需要支撐材★
+      n.z <= -0.95            近水平天花板    → 橋接（跨距短就印得出來）
+    貼在列印床上的底面（z ≈ z_min）排除，那是第一層不是懸空。
+    """
+    thr = math.cos(math.radians(deg))
+    sloped = flat = 0.0
+    for (a, b, c) in tris:
+        area, n = tri_area_normal(a, b, c)
+        if area == 0 or n[2] >= 0 or -n[2] <= thr:
+            continue
+        if max(a[2], b[2], c[2]) - z_min < 0.2:
+            continue
+        if n[2] <= FLAT_NZ:
+            flat += area
+        else:
+            sloped += area
+    return sloped, flat
+
+
+def check_printability(part_meshes):
+    """part_meshes: {零件名: 三角形串列}（設計方位，本函式會先轉到列印方位）"""
+    rows, bad = [], 0
+    for nm, tris in part_meshes.items():
+        if not tris:
+            continue
+        orient = PRINT_ORIENT.get(nm, (0, 0, 0))
+        pt = rotate_tris(tris, orient) if any(orient) else tris
+        z_min = min(v[2] for t in pt for v in t)
+        sloped, flat = overhang_area(pt, z_min)
+        tot = total_area(pt)
+        sr = sloped / tot if tot else 0
+        fr = flat / tot if tot else 0
+        ori = f"倒印 {orient[0]}°" if any(orient) else "原方位"
+        if sr > SLOPED_RATIO_MAX:
+            problems.append(
+                f"I: {nm}（{ori}）斜向懸空 {sloped:,.0f}mm² ＝ 表面積的 {sr:.0%}"
+                f"（上限 {SLOPED_RATIO_MAX:.0%}）——這類面切片器蓋不出來，"
+                f"必須支撐材。考慮換列印方位或把斜面改成 ≤45°")
+            bad += 1
+        else:
+            spans = flat_ceiling_spans(pt, z_min)
+            worst = spans[0] if spans else None
+            if worst and worst[1] > MAX_BRIDGE_MM and worst[2] > 100:
+                problems.append(
+                    f"I: {nm}（{ori}）在 z={worst[0]:.1f} 有跨距 {worst[1]:.0f}mm "
+                    f"的水平天花板（{worst[2]:,.0f}mm²）——超過橋接上限 "
+                    f"{MAX_BRIDGE_MM}mm 會下垂。解法：改成 45° 錐面自支撐、"
+                    f"加中間肋條分割跨距，或換列印方位")
+                bad += 1
+            else:
+                sp = f"，最長橋接 {worst[1]:.0f}mm" if worst else ""
+                rows.append(f"{nm} 斜{sr:.0%}/平{fr:.0%}{sp}")
+    if not bad:
+        notes.append(f"I: 列印性（已套用列印方位，斜向懸空上限 "
+                     f"{SLOPED_RATIO_MAX:.0%}）— " + "、".join(rows) + " ✓")
+
+
+# ── K. 回歸基準 ─────────────────────────────────────────────
+BASELINE = Path(__file__).parent / ".baseline.json"
+BASELINE_TOL = 0.02      # 2% 以內視為未變動
+
+
+def check_baseline(part_meshes, boxes):
+    """
+    與上次的幾何指紋比對。
+
+    ★為什麼需要★ 參數化設計最難察覺的錯是「改了 A 卻讓 B 默默變形」。
+      單看檢查全綠不代表沒事——B 可能從對的變成另一個也合法但錯的形狀。
+    """
+    import json
+    cur = {}
+    for nm, tris in part_meshes.items():
+        if not tris:
+            continue
+        vol = 0.0
+        for (a, b, c) in tris:
+            vol += (a[0]*(b[1]*c[2]-b[2]*c[1]) - a[1]*(b[0]*c[2]-b[2]*c[0])
+                    + a[2]*(b[0]*c[1]-b[1]*c[0])) / 6.0
+        cur[nm] = {"vol": round(abs(vol), 1), "tris": len(tris)}
+
+    if not BASELINE.exists():
+        BASELINE.write_text(json.dumps(cur, ensure_ascii=False, indent=2),
+                            encoding="utf-8")
+        notes.append(f"K: 首次執行，已建立幾何基準（{len(cur)} 個零件）。"
+                     f"日後任一零件體積變動 >{BASELINE_TOL:.0%} 會被標出")
+        return
+
+    try:
+        old = json.loads(BASELINE.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    changed, same = [], 0
+    for nm, c in cur.items():
+        o = old.get(nm)
+        if not o:
+            changed.append(f"{nm} 新增")
+            continue
+        dv = abs(c["vol"] - o["vol"]) / max(o["vol"], 1e-6)
+        if dv > BASELINE_TOL:
+            changed.append(f"{nm} 體積 {o['vol']:,.0f}→{c['vol']:,.0f}mm³"
+                           f"（{dv:+.1%}）")
+        else:
+            same += 1
+    for nm in old:
+        if nm not in cur:
+            changed.append(f"{nm} 消失")
+    if changed:
+        warnings.append("K: 幾何與基準不同 — " + "、".join(changed)
+                        + "。若是刻意修改，刪除 .baseline.json 後重跑即可更新基準")
+    else:
+        notes.append(f"K: {same} 個零件的幾何與基準一致（未意外變動）✓")
+
+
+# ── J. 開口遮擋 ───────────────────────────────────────────
+# (淨空區名稱, 開口所屬零件, 說明)
+CLEARANCE_ZONES = [
+    ("base_vent",    "base",       "底座側面進氣柵格（電子艙對流散熱）"),
+    ("chamber_vent", "chamber",    "隔熱層對流縫（帶走燃燒艙廢熱）"),
+    ("hood_opening", "hood",       "投香口（香要插得進去）"),
+    ("pod_vent",     "sensor_pod", "感測器通風口（量不到外界空氣就失去意義）"),
+]
+BLOCK_BUDGET = 300      # mm³，超過視為明顯遮擋
+
+
+def check_clearance():
+    """開口外側不可被其他零件擋住。"""
+    exe = find_openscad()
+    if not exe:
+        warnings.append("J: 找不到 OpenSCAD，跳過開口遮擋檢查")
+        return
+    is_exe = exe.endswith(".exe")
+    tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
+
+    def run(zone, owner):
+        out = tmp / f"b_{zone}.stl"
+        cmd = [exe, "-o", win_path(out) if is_exe else str(out),
+               "-D", f"$fn={CHECK_FN}", "-D", 'part="blocked"',
+               "-D", f'PAIR_A="{zone}"', "-D", f'PAIR_B="{owner}"',
+               win_path(SCAD) if is_exe else str(SCAD)]
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        except Exception:
+            pass
+        return zone, out
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        res = list(ex.map(lambda z: run(z[0], z[1]), CLEARANCE_ZONES))
+
+    info = {z: (o, d) for z, o, d in CLEARANCE_ZONES}
+    ok = 0
+    for zone, out in res:
+        vol = mesh_volume(out) if out.exists() else 0.0
+        owner, desc = info[zone]
+        if vol > BLOCK_BUDGET:
+            problems.append(
+                f"J: {desc} 的淨空區被其他零件佔去 {vol:,.0f}mm³"
+                f"——開口被擋住，功能失效（注意：這不是干涉，"
+                f"兩件沒有相碰，所以干涉檢查抓不到）")
+        else:
+            ok += 1
+    shutil.rmtree(tmp, ignore_errors=True)
+    if ok == len(CLEARANCE_ZONES):
+        notes.append(f"J: {ok} 個功能性開口外側淨空 {CLEAR_HINT}mm 內無遮擋 ✓")
+
+
 def check_interference():
     exe = find_openscad()
     if not exe:
         warnings.append("H: 找不到 OpenSCAD，跳過組裝干涉檢查")
-        return
+        return {}
     is_exe = exe.endswith(".exe")
     tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
 
@@ -599,13 +966,14 @@ def check_interference():
             elif vol > 0:
                 rows.append(f"{a}×{b} {vol:,.0f}mm³")
     bad += bad2
-    shutil.rmtree(tmp, ignore_errors=True)
     total = len(PARTS) * (len(PARTS) - 1) // 2
     if not bad:
         notes.append(f"H: 兩兩干涉檢查 {total} 組全數通過"
                      f"（包圍盒預篩跳過 {skipped} 組，精算 {total-skipped} 組）✓")
         if rows:
             notes.append("H: 刻意配合的重疊（榫/法蘭/掛耳）— " + "、".join(rows))
+    shutil.rmtree(tmp, ignore_errors=True)
+    return boxes
 
 
 def main():
@@ -626,8 +994,12 @@ def main():
         check_thermal(p)
         check_duct(src, p)
         check_duct_alignment(p)
-        check_render()
-        check_interference()
+        meshes = check_render()
+        boxes = check_interference()
+        if meshes:
+            check_printability(meshes)
+            check_baseline(meshes, boxes)
+        check_clearance()
 
     print("=" * 70)
     for n in notes:

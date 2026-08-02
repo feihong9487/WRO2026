@@ -90,6 +90,12 @@ RIB_W       = 6;                // 承接肋寬——僅 4 條，把導熱路徑
 // 燃燒艙與電子艙之間的隔熱層
 ISO_GAP     = 14;               // 空氣層厚度
 ISO_VENT_W  = 5;                // 對流通風縫寬
+ISO_RIB_W   = 3;                // 隔熱層支撐肋寬
+ISO_RIB_N   = 3;                // 每軸肋條數
+// ★為什麼要肋條★ 隔熱層是從底部挖空的，其天花板（爐盆井的樓板）
+//   原本是 151mm 無支撐的水平面——列印時橋接跨距太長必定下垂。
+//   肋條把跨距切成 ~38mm 的區塊，同時提升剛性。
+//   刻意用細肋而非實心：導熱路徑降到最低，空氣層功能不受影響。
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 5015 鼓風機（離心式：軸向進氣、徑向出風）
@@ -289,9 +295,21 @@ module chamber() {
             difference() {
                 rrect_chamfered(CHMB_W, CHMB_D, CHMB_H, CORNER_R);
 
-                // 隔熱空氣層（底部整層挖空，只留四周牆）
-                translate([WALL, WALL, -0.1])
-                    rrect(CHMB_W - WALL * 2, CHMB_D - WALL * 2, iso_z + 0.1, CORNER_R - WALL);
+                // 隔熱空氣層（底部整層挖空，只留四周牆與支撐肋）
+                difference() {
+                    translate([WALL, WALL, -0.1])
+                        rrect(CHMB_W - WALL * 2, CHMB_D - WALL * 2,
+                              iso_z + 0.1, CORNER_R - WALL);
+                    // 肋條：把天花板的橋接跨距切成可列印的區塊
+                    for (i = [1 : ISO_RIB_N]) {
+                        translate([CHMB_W * i / (ISO_RIB_N + 1) - ISO_RIB_W / 2,
+                                   WALL, -0.2])
+                            cube([ISO_RIB_W, CHMB_D - WALL * 2, iso_z + 0.3]);
+                        translate([WALL,
+                                   CHMB_D * i / (ISO_RIB_N + 1) - ISO_RIB_W / 2, -0.2])
+                            cube([CHMB_W - WALL * 2, ISO_RIB_W, iso_z + 0.3]);
+                    }
+                }
 
                 // 爐盆外圍的空氣間隙井
                 translate([CHMB_W / 2, CHMB_D / 2, iso_z + FLOOR])
@@ -534,6 +552,41 @@ module assembly(explode = 0) {
             }
 }
 
+// ── 功能性開口的淨空區 ──────────────────────────────────
+// 開口外側若被其他零件擋住，功能就失效——但這不是「干涉」
+// （沒有實體穿透），干涉檢查抓不到。例如感測器艙擋住底座進氣柵格：
+// 兩件沒有相碰，卻讓對流散熱失效。
+CLEAR_MM = 12;   // 開口外側需要的淨空深度
+
+module clearance_zone(name) {
+    if (name == "base_vent")            // 底座兩側進氣柵格
+        for (s = [0, 1])
+            translate([s ? BASE_W : -CLEAR_MM, BASE_D / 2 - 30, 14])
+                cube([CLEAR_MM, 60, 40]);
+    else if (name == "chamber_vent")    // 隔熱層前後對流縫
+        for (s = [0, 1])
+            translate([(BASE_W - CHMB_W) / 2 + CHMB_W / 2 - 45,
+                       s ? (BASE_D - CHMB_D) / 2 + CHMB_D
+                         : (BASE_D - CHMB_D) / 2 - CLEAR_MM,
+                       BASE_H + 2])
+                cube([90, CLEAR_MM, 12]);
+    else if (name == "hood_opening")    // 投香口正上方
+        translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H + HOOD_H])
+            cylinder(h = 40, d = HOOD_TOP_W - WALL * 2);
+    else if (name == "pod_vent")        // 感測器艙前方（面向參拜者）
+        translate([BASE_W / 2 - POD_W / 2, -POD_D - CLEAR_MM, BASE_H - POD_H - 2])
+            cube([POD_W, CLEAR_MM, POD_H]);
+}
+
+// 除了指定零件以外的所有零件（檢查淨空區被誰擋住）
+module others(except) {
+    for (n = PARTS_LIST) if (n != except) placed(n);
+}
+
+module blocked(zone, owner) {
+    intersection() { clearance_zone(zone); others(owner); }
+}
+
 // 兩零件的干涉體積：驗證器匯成 STL 後量體積。
 // 體積 > 0 代表兩件互相穿透，實體組裝不起來（也就是畫面上的 z-fighting 破圖）。
 module interference(a, b) {
@@ -564,6 +617,7 @@ module dispatch() {
     else if (part == "print_plate")  print_plate();
     else if (part == "placed")       placed(PAIR_A);           // 定位後單件（取包圍盒）
     else if (part == "interference") interference(PAIR_A, PAIR_B);
+    else if (part == "blocked")      blocked(PAIR_A, PAIR_B);
     else if (part == "none")         ;                          // 供 include 時不算繪
     else                             assembly(0);
 }
