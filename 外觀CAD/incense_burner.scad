@@ -59,6 +59,15 @@ WALL        = NOZZLE * 6;       // 2.4mm＝6 走線，強度足夠且不浪費�
 FLOOR       = NOZZLE * 5;       // 2.0mm 底/頂厚（0.2 層高 × 10 層）
 FIT         = 0.3;              // 組裝件之間的配合間隙（FDM 常用 0.2-0.4）
 CHAMFER     = 1.2;              // 底緣倒角，改善首層附著
+// ★切穿用的超出量★ 任何要「切開表面」的 difference()，被切體都必須
+//   超出表面至少 OVER。停在共平面的位置時，CGAL 不保證切穿——
+//   會留下一層退化薄膜，開口實際上是封死的，而且：
+//     · 參數檢查抓不到（尺寸都對）
+//     · Volumes=2 抓不到（封起來仍是合法的單一實體）
+//     · F5 預覽看起來是開的（OpenCSG 容忍共平面），只有 F6／匯出 STL 才現形
+//   集煙罩投香口踩過一次。是否觸發跟周邊幾何有關，不是每次共面都會出事——
+//   正因為不可預測，才一律超出，不去賭這一次會不會過。
+OVER        = 2;
 BED         = 220;              // 列印床尺寸，驗證腳本會檢查零件是否放得下
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,6 +92,7 @@ CORNER_R    = 10;               // 外型圓角半徑——柔和的圓角讓造
 // ★使用者自備金屬爐盆★：常見不鏽鋼碗／香灰盆。買到後請實測並改這兩個值。
 BOWL_D      = 110;              // 爐盆外徑
 BOWL_H      = 45;               // 爐盆深度
+BOWL_ALPHA  = 1;                // 組裝圖裡爐盆的不透明度（1=實心；見 assembly() 註解）
 AIR_GAP     = 8;                // ★爐盆與塑膠之間的空氣間隙（絕熱關鍵）★
 BOWL_LIP    = 4;                // 承接爐盆邊緣的環寬
 RIB_W       = 6;                // 承接肋寬——僅 4 條，把導熱路徑降到最低
@@ -98,6 +108,28 @@ ISO_RIB_N   = 3;                // 每軸肋條數
 //   刻意用細肋而非實心：導熱路徑降到最低，空氣層功能不受影響。
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 螺絲規格
+// ═══════════════════════════════════════════════════════════════════════════
+// 指定：鎖固一律用 M4。
+//
+// ★但有三處鎖不了 M4，而且不是設計選擇的問題★
+//   孔徑是外購板卡「自己」的孔，不在我們的圖上：
+//     Raspberry Pi 5   官方安裝孔 Ø2.7  → 只能 M2.5
+//     MATRIX Mini R4   UNO 相容孔 Ø3.2  → 只能 M3
+//     D4184 MOSFET 模組 常見 Ø3.0       → 只能 M3
+//   M4 螺絲桿徑 4.0 mm，物理上穿不過去。要嘛把板子的孔擴孔（會削掉
+//   板邊銅箔與接地層，不建議），要嘛這三處照板子的規格走。此處選後者。
+//
+//   結論：★外殼、風扇、感測器艙一律 M4；板卡→殼依板子的孔徑★
+M4_PILOT   = 3.3;    // M4 自攻進 PETG 的底孔（旋入式，不用螺帽）
+M4_CLEAR   = 4.5;    // M4 通孔
+M4_HEAD_D  = 8.0;    // M4 螺帽／華司外徑 → 決定螺柱、掛耳的最小尺寸
+M4_ENGAGE  = 8.0;    // 自攻最小旋入深度（≒2×公稱徑，塑膠件的經驗值）
+
+M3_PILOT   = 2.5;    // MATRIX / D4184
+M25_PILOT  = 2.1;    // Raspberry Pi 5
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 5015 鼓風機（離心式：軸向進氣、徑向出風）
 // ═══════════════════════════════════════════════════════════════════════════
 FAN_W       = 51;               // 本體寬（標稱 50，留餘量）
@@ -106,7 +138,7 @@ FAN_T       = 16;               // 厚度（標稱 15）
 FAN_INLET_D = 40;               // 軸向進氣口直徑
 FAN_OUT_W   = 20;               // 徑向出風口寬
 FAN_OUT_H   = 20;               // 徑向出風口高
-FAN_SCREW_D = 3.2;              // M3 通孔
+FAN_SCREW_D = M4_CLEAR;         // M4 通孔（風扇耳孔多為 Ø4，M4 可過；★請實測★）
 FAN_SCREW_S = 42;               // 螺絲孔間距（5015 常見值，請實測確認）
 
 // 煙道
@@ -130,8 +162,10 @@ PI_W        = 85;    PI_D     = 56;    PI_SCREW    = [[3.5,3.5],[61.5,3.5],[3.5,
 D4184_W     = 42;    D4184_D  = 34;
 
 STANDOFF_H  = 6;                // 螺柱高（板底離殼底的距離，留走線空間）
-STANDOFF_D  = 7;                // 螺柱外徑
-SCREW_PILOT = 2.5;              // M3 自攻底孔（螺絲直接旋入塑膠）
+// 螺柱外徑由底孔決定：孔壁至少要留 2.4mm（＝6 條 0.4 走線）才不會旋裂。
+// 板卡螺柱走 M3/M2.5（見上方「螺絲規格」說明），不是 M4。
+function standoff_od(pilot) = pilot + 2 * WALL;
+STANDOFF_D  = standoff_od(M3_PILOT);   // = 7.3
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 感測器艙（前方，遠離熱源，朝向參拜者呼吸帶）
@@ -141,6 +175,23 @@ POD_D       = 26;
 POD_H       = 58;   // 需容納兩模組堆疊（驗證腳本會檢查）
 SCD41_W     = 25;    SCD41_D = 21;     // GY-SCD41 模組（估值，請實測）
 SHT31_W     = 18;    SHT31_D = 14;     // GY-SHT31-D 模組（估值，請實測）
+// 背面掛耳：M4×2 鎖到底座前壁。厚度與高度要吃得住 M4 的鎖緊力，
+// 孔緣到耳邊至少留 M4_HEAD_D/2，否則鎖下去會把耳朵撕開。
+// ★掛耳必須橫跨整個背面開口★ 背面是全開的，中央一小片掛耳沒有任何
+//   東西可以接——會變成浮空的獨立實體（CGAL Volumes 會從 2 變 3）。
+//   所以做成一條橫樑，兩端埋進側壁、上緣埋進頂壁，三面都咬住。
+POD_EAR_T     = 5;                     // 掛耳厚（M4 通孔穿過）
+POD_EAR_H     = 14;                    // ≥ M4_HEAD_D + 2×壁厚
+POD_EAR_PITCH = 20;                    // 兩孔間距
+POD_EAR_EMBED = 1;                     // 埋進側壁／頂壁的深度（確保實體相交而非共面）
+POD_EAR_W     = POD_W - WALL * 2 + POD_EAR_EMBED * 2;
+POD_EAR_X     = WALL - POD_EAR_EMBED;
+POD_EAR_Z     = POD_H - FLOOR + POD_EAR_EMBED - POD_EAR_H;
+// 前面通風槽的 x 位置。定位肋佔用的 x 區間（艙寬 62、中心 31）：
+//   SCD41 肋 15.2–18.2、43.8–46.8　｜　SHT31 肋 18.7–21.7、40.3–43.3
+// 剩下的淨空帶：2.4–15.2 / 21.7–40.3 / 46.8–59.6，槽只能開在這三帶裡。
+// 槽寬 3.5，所以中心距肋緣至少要 1.75+1.2。★驗證腳本 L 會檢查★
+POD_VENT_X    = [9, 25, 31, 37, 53];
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 定位榫（層與層之間的對位）
@@ -177,11 +228,11 @@ module rrect_chamfered(w, d, h, r, c = CHAMFER) {
     }
 }
 
-// 螺柱座（含自攻底孔）
-module standoff(h = STANDOFF_H) {
+// 螺柱座（含自攻底孔）。pilot 依板子自己的孔徑給，不是統一值。
+module standoff(h = STANDOFF_H, pilot = M3_PILOT) {
     difference() {
-        cylinder(h = h, d = STANDOFF_D);
-        translate([0, 0, -0.1]) cylinder(h = h + 0.2, d = SCREW_PILOT);
+        cylinder(h = h, d = standoff_od(pilot));
+        translate([0, 0, -0.1]) cylinder(h = h + 0.2, d = pilot);
     }
 }
 
@@ -240,12 +291,22 @@ module base() {
             translate([14, 14, FLOOR])
                 for (p = MATRIX_SCREW) translate([p[0], p[1], 0]) standoff();
             translate([14, BASE_D - 14 - PI_D, FLOOR])
-                for (p = PI_SCREW) translate([p[0], p[1], 0]) standoff();
+                for (p = PI_SCREW) translate([p[0], p[1], 0]) standoff(pilot = M25_PILOT);
             // D4184 兩點固定即可
             translate([BASE_W - 20 - D4184_W, 20, FLOOR]) {
                 translate([4, 4, 0]) standoff();
                 translate([D4184_W - 4, D4184_D - 4, 0]) standoff();
             }
+            // 感測器艙掛耳的鎖點：M4 自攻螺柱，長在前壁內側
+            // ★位置完全由 POD_EAR_* ＋ place("sensor_pod") 推導★
+            //   前壁只有 WALL=2.4 厚，M4 自攻進去等於沒有牙，一鎖就滑；
+            //   所以往內加 M4_ENGAGE 深的螺柱補足旋入深度。
+            for (dx = [-1, 1])
+                translate([BASE_W / 2 + dx * POD_EAR_PITCH / 2, 0,
+                           BASE_H - POD_H - 2 + POD_EAR_Z + POD_EAR_H / 2])
+                    rotate([-90, 0, 0])
+                        standoff(h = M4_ENGAGE, pilot = M4_PILOT);
+
             // 頂緣台階 ＋ 定位榫（公）——燃燒艙套上來
             top_ledge(BASE_W, BASE_D, BASE_H - LEDGE_H, CORNER_R);
             tenons_male(BASE_W, BASE_D, BASE_H);
@@ -368,13 +429,9 @@ module hood() {
     function w_at(z) = CHMB_W + (HOOD_TOP_W - CHMB_W) * z / HOOD_H;
     function r_at(z) = CORNER_R + (CORNER_R * 0.6 - CORNER_R) * z / HOOD_H;
 
-    // 內腔上下各超出 OVER，確保真的切穿。
+    // 內腔上下各超出 OVER（全域定義，見檔頭「切穿用的超出量」）。
     // ★這裡踩過坑★ 原本內腔頂面停在 HOOD_H，與外殼頂面共平面，
     //   結果不是切穿而是留下一層退化頂蓋——投香口被封死。
-    //   參數檢查與 Volumes=2 都抓不到（封起來的罩子仍是合法單一實體），
-    //   是用 SECTION=true 剖半算繪才看出來的。
-    OVER = 2;
-
     difference() {
         union() {
             // 外殼
@@ -458,33 +515,82 @@ module fan_mount() {
 // ═══════════════════════════════════════════════════════════════════════════
 // 位置在前方下緣，遠離熱源，開口朝向參拜者呼吸帶——
 // 這符合 FSM 用 CO2 斜率偵測人潮的設計意圖：量的是「人呼吸到的空氣」。
-module sensor_pod() {
+// ★2026-08-02 重寫★ 原本掛耳與模組卡槽都寫在 difference() 的 union() 裡，
+//   但內部挖空 rrect(..., POD_D - WALL, ...) 從 y=WALL 一路開到 y=POD_D
+//   （背面全開），把落在那個範圍內的掛耳與卡槽★整個吃掉★——
+//   算出來的仍是合法實體，Volumes=2、watertight、參數檢查全過，
+//   但功能特徵根本不存在：艙體鎖不上底座，感測器也沒東西夾。
+//   （是把零件單獨算繪出來看背面才發現的，數值檢查一項都沒響。）
+//   修法：挖空只作用在「殼」上，掛耳與定位肋在挖空之後才 union 進來。
+module pod_ear() {
     difference() {
-        union() {
+        cube([POD_EAR_W, POD_EAR_T, POD_EAR_H]);
+        for (dx = [-1, 1])
+            translate([POD_EAR_W / 2 + dx * POD_EAR_PITCH / 2, -0.1, POD_EAR_H / 2])
+                rotate([-90, 0, 0])
+                    cylinder(h = POD_EAR_T + 0.2, d = M4_CLEAR);
+    }
+}
+
+// 模組定位肋：兩側各一道，夾住 PCB 的左右邊緣。
+// ★不做成封閉滑槽★ 兩個理由：
+//   1) 艙內高度不夠讓 PCB 從上往下滑進槽裡（上方只剩 8mm，板高 14mm）
+//   2) 不需要——背面開放，PCB 由背面推入貼著前壁；
+//      感測器艙鎖上底座後，底座前壁就是後擋板，把 PCB 壓住
+// 肋條一路從艙底（FLOOR）長上來，不從半空開始，否則第一層無支撐。
+POD_RIB_W = 3;    // 肋在 x 方向的厚度
+POD_RIB_D = 4;    // 肋離前壁內面的深度（＞板厚，才夾得住）
+module pod_rails(pcb_w, z0, z_len) {
+    span = pcb_w + FIT * 2;
+    top  = z0 + z_len;
+    for (dx = [-1, 1]) {
+        A  = POD_W / 2 + dx * (span / 2);        // PCB 的左／右邊緣
+        rx = dx > 0 ? A : A - POD_RIB_W;         // 肋條一律長在 PCB 外側
+        // 上擋／下擋：★只在肋條上做往內伸 2mm 的小凸耳，不做橫跨整寬的擋片★
+        //   橫跨整寬的擋片會壓在前壁的通風槽上——驗證 L 抓到的就是這個：
+        //   兩道擋片共擋掉 115mm³，等於把中間三道槽各截去 2mm 高度。
+        //   凸耳只佔 PCB 兩側角落，通風槽的視線完全不受影響。
+        // ★凸耳必須埋進肋條 1mm★ 只靠邊對邊接觸會產生非流形邊
+        //   （Simple=no，切片器直接拒收）——這也踩過一次。
+        tx = dx > 0 ? A - 2 : A - 1;
+        translate([rx, WALL, FLOOR])
+            cube([POD_RIB_W, POD_RIB_D, top + 2 - FLOOR]);
+        translate([tx, WALL, top]) cube([3, POD_RIB_D, 2]);
+        if (z0 > FLOOR + 0.01)       // z0 就在艙底時，艙底本身就是落座面
+            translate([tx, WALL, z0 - 2]) cube([3, POD_RIB_D, 2]);
+    }
+}
+
+module sensor_pod() {
+    union() {
+        difference() {
             rrect_chamfered(POD_W, POD_D, POD_H, 5);
-            // 背面掛耳（鎖到底座前壁）
-            translate([POD_W / 2 - 14, POD_D - WALL, POD_H - 12]) cube([28, WALL, 10]);
+
+            // 內部挖空（背面開放，方便置入模組與走線）
+            // 背面加 OVER，不讓切面停在與外殼共平面的位置（見檔頭 OVER 說明）。
+            translate([WALL, WALL, FLOOR])
+                rrect(POD_W - WALL * 2, POD_D - WALL + OVER, POD_H - FLOOR * 2,
+                      5 - WALL);
+
+            // 前面通風柵格——感測器必須接觸到外界空氣才量得準。
+            // ★x 位置必須避開背面的定位肋★ 肋條貼在前壁內面，
+            //   壓在槽上就等於把槽封死：外面看得到孔，裡面其實不通氣。
+            //   （原本 5 槽等距 pitch=8，正好被兩對肋壓住兩槽）
+            for (vx = POD_VENT_X)
+                translate([vx, -0.5, POD_H / 2]) rotate([-90, 0, 0])
+                    vent_slots(1, 3.5, 26, 0, WALL + 1);
         }
 
-        // 內部挖空（背面開放，方便置入模組與走線）
-        translate([WALL, WALL, FLOOR])
-            rrect(POD_W - WALL * 2, POD_D - WALL, POD_H - FLOOR * 2, 5 - WALL);
+        // 背面掛耳（M4 鎖到底座前壁的螺柱上）——★必須在挖空之後★
+        // 用外輪廓 intersection 修邊，橫樑才不會從圓角處凸出去。
+        intersection() {
+            translate([POD_EAR_X, POD_D - POD_EAR_T, POD_EAR_Z]) pod_ear();
+            rrect(POD_W, POD_D, POD_H, 5);
+        }
 
-        // 前面通風柵格——感測器必須接觸到外界空氣才量得準
-        translate([12, -0.5, POD_H / 2]) rotate([-90, 0, 0])
-            vent_slots(5, 3.5, 26, 8, WALL + 1);
-
-        // 模組卡槽（滑入式）
-        translate([POD_W / 2 - SCD41_W / 2 - FIT, WALL + 2, FLOOR + 4])
-            cube([SCD41_W + FIT * 2, 1.8, SCD41_D + FIT * 2]);
-        translate([POD_W / 2 - SHT31_W / 2 - FIT, WALL + 2, FLOOR + 4 + SCD41_D + 6])
-            cube([SHT31_W + FIT * 2, 1.8, SHT31_D + FIT * 2]);
-
-        // 掛耳螺絲孔
-        translate([POD_W / 2 - 8, POD_D - WALL - 0.1, POD_H - 7]) rotate([-90, 0, 0])
-            cylinder(h = WALL + 0.2, d = SCREW_PILOT);
-        translate([POD_W / 2 + 8, POD_D - WALL - 0.1, POD_H - 7]) rotate([-90, 0, 0])
-            cylinder(h = WALL + 0.2, d = SCREW_PILOT);
+        // 模組定位肋（下 SCD41、上 SHT31）——★同樣必須在挖空之後★
+        pod_rails(SCD41_W, FLOOR, SCD41_D + FIT * 2);
+        pod_rails(SHT31_W, FLOOR + SCD41_D + FIT * 2 + 8, SHT31_D + FIT * 2);
     }
 }
 
@@ -544,11 +650,18 @@ module assembly(explode = 0) {
         color(PART_COLOR[i]) placed(PARTS_LIST[i], explode);
 
     // 金屬爐盆（示意，非列印件）
+    // ★爐面「條紋狀」的來源就在這兩行★
+    //   1) alpha=0.55 的半透明：OpenSCAD 預覽（F5／OpenCSG）不做深度排序，
+    //      圓柱的每一個面片以任意前後順序疊合 → 橫向色帶
+    //   2) $fn=48 在 Ø110 上每片弦長 7.2mm，掠射角看過去就是一圈階梯
+    //   兩者都只是顯示問題，實體幾何是乾淨的（檢查 G：Volumes=2、Simple=yes）。
+    //   預設改成不透明＋高細分；要看內部時用 -D BOWL_ALPHA=0.4，
+    //   但看到的條紋是預覽假影，不是模型壞掉。
     translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H - BOWL_H + explode])
-        color("#b9bec4", 0.55)
+        color("#b9bec4", BOWL_ALPHA)
             difference() {
-                cylinder(h = BOWL_H, d = BOWL_D);
-                translate([0, 0, 1.5]) cylinder(h = BOWL_H, d = BOWL_D - 3);
+                cylinder(h = BOWL_H, d = BOWL_D, $fn = 160);
+                translate([0, 0, 1.5]) cylinder(h = BOWL_H, d = BOWL_D - 3, $fn = 160);
             }
 }
 
@@ -587,6 +700,38 @@ module blocked(zone, owner) {
     intersection() { clearance_zone(zone); others(owner); }
 }
 
+// ── 開口「內側」的貫通檢查 ────────────────────────────────────
+// clearance_zone 問的是「開口外面有沒有被別的零件擋住」；
+// throughway 問的是★開口本身到底有沒有通★——
+// 探針從外面穿過開口伸進內腔，跟零件★自己★求交集，體積必須 ≈ 0。
+//
+// 這抓得到兩種現有檢查全都放行的錯，兩種都真的踩過：
+//   1) 挖空的終點與外表面共面，CGAL 不保證切穿 → 開口其實是封死的。
+//      Volumes=2 過（封起來仍是合法單一實體）、參數檢查過（尺寸都對）、
+//      F5 預覽看起來還是開的（OpenCSG 容忍共平面），只有 F6／STL 才現形。
+//      —— 集煙罩投香口中過一次。已用「在投香口貼 0.4mm 薄膜」做負向測試：
+//         L 抓到 2,328mm³，而 G/J/K 全數放行。
+//   2) 開口通了，但內側被自己的肋條／螺柱壓住 → 外面看得到孔，裡面不通氣。
+//      —— 這一項是 L 上線當天就抓到的：感測器艙的上下擋片橫跨通風槽，
+//         擋掉 115mm³（中間三道槽各被截去 2mm 高度）。
+module throughway(name) {
+    if (name == "hood_opening")          // 投香口：由上方伸進罩內
+        translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H + HOOD_H - 20])
+            cylinder(h = 25, d = HOOD_TOP_W - WALL * 2 - 4);
+    else if (name == "pod_back")         // 感測器艙背面（要開放才裝得進模組與走線）
+        translate([BASE_W / 2 - POD_W / 2 + 10, -8, BASE_H - POD_H + 3])
+            cube([POD_W - 20, 11, 35]);
+    else if (name == "pod_vent")         // 每一道通風槽，由外面戳進內腔
+        for (vx = POD_VENT_X)
+            translate([BASE_W / 2 - POD_W / 2 + vx - 1.2, -POD_D - 2,
+                       BASE_H - POD_H - 2 + POD_H / 2 - 9])
+                cube([2.4, 2 + WALL + POD_RIB_D + 1, 18]);
+}
+
+module obstructed(zone, owner) {
+    intersection() { throughway(zone); placed(owner); }
+}
+
 // 兩零件的干涉體積：驗證器匯成 STL 後量體積。
 // 體積 > 0 代表兩件互相穿透，實體組裝不起來（也就是畫面上的 z-fighting 破圖）。
 module interference(a, b) {
@@ -618,6 +763,7 @@ module dispatch() {
     else if (part == "placed")       placed(PAIR_A);           // 定位後單件（取包圍盒）
     else if (part == "interference") interference(PAIR_A, PAIR_B);
     else if (part == "blocked")      blocked(PAIR_A, PAIR_B);
+    else if (part == "obstructed")   obstructed(PAIR_A, PAIR_B);  // 開口有沒有真的通
     else if (part == "none")         ;                          // 供 include 時不算繪
     else                             assembly(0);
 }

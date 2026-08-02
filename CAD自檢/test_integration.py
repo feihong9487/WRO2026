@@ -231,6 +231,49 @@ def test_外觀CAD的近熱區必須有空氣間隙():
         f"間隙不足會讓外殼超過材料耐受")
 
 
+def test_鎖固一律使用M4且例外必須有物理理由():
+    """
+    使用者指定：鎖固一律用 M4。
+
+    但「板卡鎖到殼上」這一類鎖不了 M4——孔徑是外購板自己的孔，
+    不在我們的圖上，M4 桿徑 4.0mm 物理上穿不過去。
+    這條規則要求：★每一個非 M4 的例外，都必須是被板子的孔徑逼出來的★，
+    不能因為「M3 比較好買」就退回去。所以逐一比對板孔徑 < M4 桿徑。
+    """
+    if not SCAD_V:
+        return
+    pilot = SCAD_V.get("M4_PILOT")
+    clear = SCAD_V.get("M4_CLEAR")
+    if pilot is None or clear is None:
+        return
+    shank = P.M4_SHANK_MM
+
+    # 1) M4 的孔徑本身要合理：底孔咬得住牙、通孔過得去但不曠
+    assert pilot < shank, f"M4 底孔 {pilot}mm ≥ 桿徑 {shank}mm，自攻沒有咬合量"
+    assert clear > shank, f"M4 通孔 {clear}mm ≤ 桿徑 {shank}mm，螺絲穿不過"
+    assert clear - shank <= 0.8, (
+        f"M4 通孔 {clear}mm 比桿徑大 {clear - shank:.1f}mm，配合太曠會晃")
+
+    # 2) 外殼側的鎖點必須用 M4（風扇座通孔）
+    fan = SCAD_V.get("FAN_SCREW_D")
+    assert fan == clear, (
+        f"風扇座鎖孔 {fan}mm 不等於 M4 通孔 {clear}mm——外殼鎖固應一律 M4")
+
+    # 3) 每個例外都要有物理理由：板孔裝不下 M4
+    for board, (spec, hole_d) in P.SCREW_BOARD_EXEMPT.items():
+        assert hole_d < shank, (
+            f"{board} 安裝孔 ⌀{hole_d}mm ≥ M4 桿徑 {shank}mm——"
+            f"這個孔其實鎖得下 M4，不該例外成 {spec}")
+
+    # 4) 螺柱外徑要留得住牙：孔壁厚度不足會旋裂
+    wall = SCAD_V.get("WALL", 0)
+    od = SCAD_V.get("STANDOFF_D", 0)
+    if wall and od:
+        assert od - pilot >= wall * 1.6, (
+            f"M4 螺柱外徑 {od}mm 對底孔 {pilot}mm 只剩 "
+            f"{(od - pilot) / 2:.1f}mm 孔壁，旋入時會裂")
+
+
 def test_桌上型展示機與廟宇實體爐的尺度需標明差異():
     """
     mech_params 的 CENSER_INNER_DIA / PLATE_DIA 對應廟宇實體香爐，

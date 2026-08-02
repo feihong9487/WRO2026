@@ -887,6 +887,68 @@ def check_clearance():
         notes.append(f"J: {ok} 個功能性開口外側淨空 {CLEAR_HINT}mm 內無遮擋 ✓")
 
 
+# ── L：開口貫通檢查 ──────────────────────────────────────────────
+# J 檢查的是「開口外面被別的零件擋住」；L 檢查的是「開口本身有沒有通」。
+# 探針（incense_burner.scad 的 throughway）從外面穿過開口伸進內腔，
+# 跟開口自己所屬的零件求交集——體積必須 ≈ 0。
+#
+# ★為什麼非要這一項不可★ 這類錯誤現有檢查全部放行：
+#   · 參數檢查：尺寸都對，過
+#   · Volumes=2：封死的殼仍是合法單一實體，過
+#   · J 淨空檢查：別的零件確實沒擋，過
+#   · F5 預覽：OpenCSG 容忍共平面，看起來還是開的
+#   只有 F6／匯出 STL 才現形，而 STL 正是實際拿去列印的東西。
+THROUGHWAYS = [
+    ("hood_opening", "hood",       "投香口（香插不進去就沒得燒）"),
+    ("pod_back",     "sensor_pod", "感測器艙背面（封死就裝不進模組、也走不了線）"),
+    ("pod_vent",     "sensor_pod", "感測器通風槽（內側被肋條壓住＝外面看得到孔、裡面不通氣）"),
+]
+# 探針故意做得比開口小，正常情況交集應該完全是 0。
+# 給 20mm³ 是留給算繪離散化的餘量，不是給「稍微擋一點」用的。
+THROUGH_BUDGET = 20
+
+
+def check_throughway():
+    exe = find_openscad()
+    if not exe:
+        warnings.append("L: 找不到 OpenSCAD，跳過開口貫通檢查")
+        return
+    is_exe = exe.endswith(".exe")
+    tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
+
+    def run(zone, owner):
+        out = tmp / f"t_{zone}.stl"
+        cmd = [exe, "-o", win_path(out) if is_exe else str(out),
+               "-D", f"$fn={CHECK_FN}", "-D", 'part="obstructed"',
+               "-D", f'PAIR_A="{zone}"', "-D", f'PAIR_B="{owner}"',
+               win_path(SCAD) if is_exe else str(SCAD)]
+        try:
+            subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        except Exception:
+            pass
+        return zone, out
+
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        res = list(ex.map(lambda z: run(z[0], z[1]), THROUGHWAYS))
+
+    info = {z: (o, d) for z, o, d in THROUGHWAYS}
+    ok = 0
+    for zone, out in res:
+        vol = mesh_volume(out) if out.exists() else 0.0
+        owner, desc = info[zone]
+        if vol > THROUGH_BUDGET:
+            problems.append(
+                f"L: {desc} 沒有真的貫通——探針被 {owner} 自己的實體擋掉 "
+                f"{vol:,.0f}mm³。兩種可能：(a) 挖空終點與外表面共面，"
+                f"CGAL 沒切穿（解法：被切體超出表面 OVER）；"
+                f"(b) 開口內側被自己的肋條／螺柱壓住（解法：挪開）")
+        else:
+            ok += 1
+    shutil.rmtree(tmp, ignore_errors=True)
+    if ok == len(THROUGHWAYS):
+        notes.append(f"L: {ok} 個功能性開口皆確認貫通（探針交集 ≈ 0）✓")
+
+
 def check_interference():
     exe = find_openscad()
     if not exe:
@@ -1000,6 +1062,7 @@ def main():
             check_printability(meshes)
             check_baseline(meshes, boxes)
         check_clearance()
+        check_throughway()
 
     print("=" * 70)
     for n in notes:
