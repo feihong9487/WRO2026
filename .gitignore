@@ -6,6 +6,14 @@ __pycache__/
 # ── 自動化產生的 log ──
 auto_loop_*.log
 
+# ── STEP 匯出與其相依 ──
+# STEP 是 .scad 的衍生檔，可隨時用 export_step.py 重產；
+# 而且單檔就好幾 MB，不該進版控。
+外觀CAD/STEP/
+外觀CAD/.venv/
+外觀CAD/.stepexp_*/
+*.step
+
 # ── CAD / EDA 的暫存與衍生檔 ──
 # 原始檔（.scad / 產生器 .py）才是真相來源，衍生檔可隨時重產
 外觀CAD/.scadchk_*/
