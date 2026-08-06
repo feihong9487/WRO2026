@@ -14,6 +14,7 @@ STL 匯出後由 verify_stl.py 回頭核對，形成閉環。
   （對應《實作交接文件》§5.5 誠實一致性）
 """
 
+import math
 from dataclasses import dataclass, field
 from typing import List
 
@@ -60,15 +61,37 @@ INCENSE_MEASURED      = False   # ← 待實地蒐集數種市售香量測
 # =============================================================
 
 SLEEVE_OUTER_DIA   = 10.0       # 鋁管外徑（BOM：鋁管 8-10mm）
-SLEEVE_INNER_DIA   = 8.0        # 內徑，供香枝穿過
+# 2026-08-07 決定：內徑 8.0 → 7.0，壁厚 1.0 → 1.5mm。
+#   外徑不變，所以 PLATE_HOLE_DIA、孔距、板面佈局完全不用動。
+#   內徑 7.0 對最粗香枝 3.5mm 仍餘 3.5mm，功能零影響。
+#   ★理由不是「讓列印規則過關」★（那條規則本來就不該套在外購鋁管上，見 A 案），
+#   是 1.0mm 壁的薄鋁管插拔時容易壓成橢圓，而它要在 0.4mm 間隙的孔裡滑動——
+#   橢圓化就會卡死。OD10×1.5 與 OD10×1.0 同為標準庫存尺寸，成本相當。
+SLEEVE_INNER_DIA   = 7.0        # 內徑，供香枝穿過
 SLEEVE_LENGTH      = 40.0
 SLEEVE_WALL        = (SLEEVE_OUTER_DIA - SLEEVE_INNER_DIA) / 2
 SLEEVE_MATERIAL    = ALU        # 管身鋁（耐熱）
 SLEEVE_FERRO_RING  = STEEL      # 鐵墊圈提供磁性（BOM：鋁管＋鐵墊圈）
 SLEEVE_RING_MASS_G = 4.0        # 鐵墊圈質量（估）
 SLEEVE_RING_MEASURED = False    # ← 待量測
+ALU_DENSITY_G_CM3  = 2.70       # 鋁密度（物性常數，非估值）
 # 套筒是外購鋁管，不是 3D 列印件——列印最小特徵規則不適用於它
 SLEEVE_IS_PRINTED  = False
+
+# ── 外購管材的「可製造性」是另一回事 ───────────────────────
+# 3D 列印件的下限是噴嘴能不能穩定成形；外購管材的下限是★買不買得到★。
+# 拿列印的最小特徵去驗擠壓成型的鋁管是套錯對象，但也不能因此就不驗——
+# 隨手寫一個 OD 9.3 × 壁 1.1 的規格，圖面上完全合理，卻沒有一家在賣。
+# 下表為常見市售公制鋁管（外徑 × 壁厚），★請向供應商確認後再定案★。
+STOCK_ALU_TUBE_OD_WALL = {
+    (6.0, 1.0), (8.0, 1.0), (8.0, 1.5),
+    (10.0, 1.0), (10.0, 1.5), (10.0, 2.0),
+    (12.0, 1.0), (12.0, 1.5), (12.0, 2.0),
+    (14.0, 1.0), (14.0, 2.0),
+    (16.0, 1.0), (16.0, 1.5), (16.0, 2.0),
+    (18.0, 1.5), (20.0, 1.0), (20.0, 1.5), (20.0, 2.0),
+}
+STOCK_SIZES_CONFIRMED = False   # ← 向供應商查證後才可改 True
 
 # 套筒在插孔板中滑動所需的單邊間隙
 SLEEVE_SLIDE_CLEARANCE = 0.4
@@ -105,7 +128,16 @@ MAGNET_FORCE_MEASURED = False   # ← 標稱值非實測，待拉力計驗證
 MAGNET_STROKE      = 8.0        # 理香需要的套筒位移量
 
 # 摩擦與重力估算（判斷 20N 是否夠用）
-SLEEVE_TOTAL_MASS_G = 12.0      # 鋁管＋鐵墊圈（估）
+# 鋁管＋鐵墊圈。★原本是沒有推導過程的 12.0g 估值★——壁厚一改它就會失準，
+# 所以改成由幾何推導管身質量再加上墊圈，壁厚變動時會自動跟著走。
+#   管身 = π/4 × (OD² − ID²) × 長度 × 鋁密度
+#   1.0mm 壁 → 3.05g　｜　1.5mm 壁 → 4.33g（本次改動 +1.28g）
+# 墊圈仍是估值（SLEEVE_RING_MEASURED = False），拿到實體請量。
+# ★保守取大★ 舊估值 12.0g 沒有依據但比推導值高，在墊圈實測前不往下調——
+#   這個數字會推導出電磁鐵所需吸力，估低了是不安全的方向。
+SLEEVE_TUBE_MASS_G = (math.pi / 4 * (SLEEVE_OUTER_DIA ** 2 - SLEEVE_INNER_DIA ** 2)
+                      * SLEEVE_LENGTH / 1000.0 * ALU_DENSITY_G_CM3)
+SLEEVE_TOTAL_MASS_G = max(12.0, SLEEVE_TUBE_MASS_G + SLEEVE_RING_MASS_G)
 FRICTION_COEFF      = 0.4       # 鋁—PETG 靜摩擦（估）
 GRAVITY             = 9.81
 
@@ -388,4 +420,5 @@ def unmeasured_items() -> List[str]:
     if not FAN_PRESSURE_MEASURED:     items.append("風扇靜壓（含過濾壓損下的實際風量）")
     if not FAN_STARTUP_MEASURED:      items.append("風扇啟動突波倍率")
     if not SENSOR_ZONE_TEMP_MEASURED: items.append("感測器艙實際溫度")
+    if not STOCK_SIZES_CONFIRMED:     items.append("市售鋁管庫存規格（需向供應商查證）")
     return items

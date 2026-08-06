@@ -69,19 +69,42 @@ def test_孔間壁厚足夠支撐():
 
 
 def test_所有特徵大於列印最小尺寸():
-    # ★ 已知失敗・待人決策（勿自行放寬）★
-    #   SLEEVE_WALL = 1.0mm < MIN_PRINTABLE_FEATURE = 1.2mm
-    #   但導正套筒是【外購鋁管】（SLEEVE_MATERIAL = ALU，BOM：鋁管 8-10mm），
-    #   不是 3D 列印件——這條規則套用在錯誤對象上。
-    #
-    #   可能的修法（屬設計決策，需人決定；CAD_LOOP §4.2 禁止 agent 自行改斷言）：
-    #     A. 依 SLEEVE_IS_PRINTED 旗標把套筒排除在列印規則之外，
-    #        另立「外購管材規格」規則
-    #     B. 改用管壁 ≥1.2mm 的鋁管（外徑 10 / 內徑 7.6），
-    #        但要重算 SLEEVE_INNER_DIA 是否仍容得下最粗的市售香（3.5mm）
-    #     C. 若日後改為自行列印套筒，則此規則本來就適用，維持原樣
-    assert P.SLEEVE_WALL >= P.MIN_PRINTABLE_FEATURE
-    assert P.PLATE_THICKNESS >= P.MIN_PRINTABLE_FEATURE * 2
+    """
+    ★2026-08-07 採 A 案（使用者決定）★
+      原本這條把導正套筒也算進去，但套筒是【外購鋁管】（SLEEVE_IS_PRINTED = False），
+      拿 3D 列印的最小成形特徵去驗擠壓成型的管材是套錯對象。
+      改為只驗真正的列印件；外購管材另由
+      test_外購管材必須是市售標準規格 把關——★不是不驗，是換對的尺去量★。
+
+      註：本次同時把套筒壁厚由 1.0 改為 1.5mm，但那有它自己的理由
+      （薄壁鋁管插拔時易壓成橢圓，會卡在 0.4mm 間隙的孔裡），
+      不是為了讓這條規則變綠。
+    """
+    if P.SLEEVE_IS_PRINTED:
+        assert P.SLEEVE_WALL >= P.MIN_PRINTABLE_FEATURE, (
+            f"套筒改為自行列印後，壁厚 {P.SLEEVE_WALL:.2f}mm "
+            f"低於最小可列印特徵 {P.MIN_PRINTABLE_FEATURE}mm")
+    assert P.PLATE_THICKNESS >= P.MIN_PRINTABLE_FEATURE * 2, (
+        f"插孔板厚 {P.PLATE_THICKNESS}mm 低於最小可列印特徵的兩倍")
+
+
+def test_外購管材必須是市售標準規格():
+    """
+    外購件的可製造性下限不是「印不印得出來」，而是★買不買得到★。
+    圖面上完全合理的 OD 9.3 × 壁 1.1，可能沒有任何一家在賣——
+    這種錯誤要到採購階段才會爆，那時機構已經定案了。
+    """
+    if P.SLEEVE_IS_PRINTED:
+        return
+    od, wall = P.SLEEVE_OUTER_DIA, P.SLEEVE_WALL
+    assert (od, round(wall, 2)) in P.STOCK_ALU_TUBE_OD_WALL, (
+        f"套筒規格 外徑 {od} × 壁厚 {wall:.2f} 不在常見市售鋁管清單內——"
+        f"該外徑可選的壁厚："
+        f"{sorted(w for o, w in P.STOCK_ALU_TUBE_OD_WALL if o == od) or '（此外徑不在清單）'}")
+    # 內徑仍須容得下最粗的香枝
+    assert P.SLEEVE_INNER_DIA > P.INCENSE_SHAFT_DIA_MAX, (
+        f"套筒內徑 {P.SLEEVE_INNER_DIA}mm 容不下最粗香枝 "
+        f"{P.INCENSE_SHAFT_DIA_MAX}mm")
 
 
 def test_插孔板必須放得進香爐():
