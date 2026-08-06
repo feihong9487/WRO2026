@@ -10,7 +10,7 @@
 本檔直接從各領域的「真實來源」讀值再交叉比對：
   機構  ← mech_params.py
   韌體  ← R4/matrix_mini_r4/matrix_mini_r4.ino（解析 const 定義）
-  外觀  ← 外觀CAD/incense_burner.scad（解析參數區）
+  外觀  ← 外觀CAD/params.scad（尺寸的唯一真相來源；2026-08-06 由 incense_burner.scad 拆出）
 
 ★ 見 CLAUDE.md §5.2 ★
   失敗時修正設計參數，不得放寬本檔門檻。
@@ -29,7 +29,8 @@ import mech_params as P
 
 HERE = Path(__file__).parent
 INO = HERE / ".." / "R4" / "matrix_mini_r4" / "matrix_mini_r4.ino"
-SCAD = HERE / ".." / "外觀CAD" / "incense_burner.scad"
+# 2026-08-06 起外觀 CAD 拆成多檔，尺寸集中在 參數.scad（唯一真相來源）。
+SCAD = HERE / ".." / "外觀CAD" / "params.scad"
 
 
 # ── 從其他領域的原始檔讀值 ─────────────────────────────────────

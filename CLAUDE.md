@@ -49,7 +49,8 @@ python3 PI5/驗證資料流.py
 | 領域 | 唯一真相來源 |
 |---|---|
 | 機構尺寸 | `CAD自檢/mech_params.py` |
-| 外觀幾何 | `外觀CAD/incense_burner.scad`（版面在 `kicad/佈線定義.py` 同理） |
+| 外觀尺寸 | `外觀CAD/params.scad`（★唯一真相來源★，零件檔不得寫死數字） |
+| 外觀幾何 | `外觀CAD/parts/*.scad`（一零件一檔）＋ `incense_burner.scad`（組裝定位） |
 | 電路 | `電路設計/kicad/佈線定義.py` → 產生器產出 `.kicad_sch` |
 | 韌體常數 | `R4/matrix_mini_r4/matrix_mini_r4.ino` |
 | 雲端儀表板 | `cloud_dash/*.json`（WSL 的 `~/incense-cloud/` 只是工作副本） |
@@ -71,6 +72,11 @@ python3 PI5/驗證資料流.py
 - **KiCad 的 `power_pin_not_driven`**：每條電源網路要有 `power_out` 或 `PWR_FLAG`。
 - **OpenSCAD 的 `Volumes` 不是 2 代表有浮空塊**——參數檢查看不出來，只有算繪才知道。
 - **Windows 的 .exe 看不到 WSL 的 `/tmp`**，暫存檔要放在 `/mnt/` 底下。
+- **OpenSCAD 的 `include`／`use` 路徑不吃非 ASCII**。中文檔名或中文目錄一律
+  回報 `Can't open include file`，而且錯誤訊息本身是 CP950，`text=True` 的
+  subprocess 會直接丟 UnicodeDecodeError。註解裡的中文沒問題，**只有路徑不行**——
+  所以 `外觀CAD/` 底下被 include 的 `.scad` 與其目錄一律用 ASCII
+  （`params.scad`、`common.scad`、`parts/`、`components/`）。
 
 ---
 

@@ -41,15 +41,98 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SCAD = Path(__file__).parent / "incense_burner.scad"
+HERE = Path(__file__).parent
+SCAD = HERE / "incense_burner.scad"      # 算繪進入點（組合件、驗證用模組、dispatch）
+PARAMS = HERE / "params.scad"               # ★唯一真相來源★：所有尺寸
 
 problems, warnings, notes = [], [], []
 
 
+def all_sources():
+    """
+    把整棵 .scad 串成一份原始碼供靜態分析用。
+
+    ★順序有意義★ params.scad 必須排最前面：load_params 只讀「第一個 module 之前」
+    的內容，而params.scad 裡沒有任何 module，所以串接後的開頭正好就是完整參數區。
+
+    2026-08-06 拆檔前這裡只讀一個檔；拆檔後若還只讀 incense_burner.scad，
+    參數會全部讀不到而讓 B/C/D/E/F 全部靜默略過——那是最糟的失敗方式
+    （檢查看起來仍是綠的）。
+    """
+    files = [PARAMS, HERE / "common.scad"]
+    files += sorted((HERE / "parts").glob("*.scad"))
+    files += sorted((HERE / "components").glob("*.scad"))
+    files += [SCAD]
+    out = []
+    for f in files:
+        if f.exists():
+            out.append(f"// ===== {f.relative_to(HERE)} =====\n"
+                       + f.read_text(encoding="utf-8"))
+    return "\n".join(out), [f for f in files if f.exists()]
+
+
+# ── 呼叫 OpenSCAD ───────────────────────────────────────────
+# ★為什麼要集中★ 2026-08-06 拆檔後踩到一次：parts/sensor_pod.scad 裡定義的
+#   POD_RIB_D 因為改用 use<> 引入而不再對 incense_burner.scad 可見，
+#   throughway 的探針算成 cube([2.4, undef, 18]) —— 沒有幾何。
+#   交集當然是 0，於是檢查 L「通過」了，但它其實什麼都沒驗。
+#   OpenSCAD 明明有印 "Ignoring unknown variable"，只是被 stderr 丟掉了。
+#   結論：★OpenSCAD 的警告一律收下並視為問題★，不要只看回傳碼。
+FATAL_SCAD_WARN = ("Ignoring unknown variable", "undefined operation",
+                   "Unable to convert", "Can\'t open include file")
+
+
+def scad_run(cmd, tag):
+    """跑 OpenSCAD 並收警告。stderr 在 Windows 是系統碼頁，不能用 text=True 硬解。"""
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=300)
+    except Exception as e:
+        problems.append(f"{tag}: OpenSCAD 執行失敗 — {type(e).__name__}: {e}")
+        return ""
+    err = (r.stderr or b"").decode("utf-8", errors="replace")
+    for pat in FATAL_SCAD_WARN:
+        if pat in err:
+            line = next((l.strip() for l in err.splitlines() if pat in l), pat)
+            problems.append(
+                f"{tag}: OpenSCAD 回報「{line}」——"
+                f"參照壞掉的檢查會靜默通過（幾何是空的，交集自然為 0），"
+                f"所以這一律視為問題而非警告")
+            break
+    return err
+
+
 # ── 解析 ────────────────────────────────────────────────────
 def strip_comments(src):
-    src = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
-    return re.sub(r"//[^\n]*", "", src)
+    r"""
+    由左而右掃一遍，正確處理字串／行註解／區塊註解。
+
+    ★不要用兩道 regex★（先 /\*.*?\*/ 再 //...）——2026-08-06 踩過：
+      params.scad 有一行 `// … components/*.scad 用`，那個 /* 對 regex 來說
+      就是區塊註解的開頭，於是跟後面 common.scad 檔頭的 */ 配成一對，
+      把中間整整 50 個參數（POD_* 全部）當成註解吃掉。
+      後果是 check_fits 直接 KeyError——這次是大聲壞掉，算走運；
+      若那些參數剛好只被「有就檢查、沒有就跳過」的規則用到，就會靜默失效。
+    """
+    out, i, n = [], 0, len(src)
+    while i < n:
+        c = src[i]
+        if c == '"':                       # 字串原樣保留：裡面的 // 不是註解
+            j = i + 1
+            while j < n and src[j] != '"':
+                j += 2 if src[j] == "\\" else 1
+            out.append(src[i:min(j + 1, n)])
+            i = j + 1
+        elif src.startswith("//", i):      # 行註解★先判★，才不會被裡面的 /* 騙走
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+        elif src.startswith("/*", i):
+            j = src.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+            out.append(" ")
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
 
 
 def load_params(src):
@@ -68,7 +151,9 @@ def load_params(src):
         if name.startswith("$"):
             continue
         try:
-            env[name] = eval(expr, {"__builtins__": {}}, dict(env))
+            # max/min 是 OpenSCAD 內建，參數式常用（例：由最厚的模組推導肋深）
+            env[name] = eval(expr, {"__builtins__": {}, "max": max, "min": min},
+                             dict(env))
         except Exception:
             pass          # 字串或無法求值者略過（如 part = "assembly"）
     return env
@@ -181,6 +266,17 @@ def check_fits(p):
     tallest = p["STANDOFF_H"] + 18      # 板厚＋最高連接器（USB-A 約 16mm）
     if tallest + p["FLOOR"] > p["BASE_H"]:
         problems.append(f"C: 螺柱 {p['STANDOFF_H']}＋連接器約 18mm 高於電子艙 {p['BASE_H']}")
+
+    # ── 感測器艙：定位肋之後要留得下走線 ──
+    # 這條原本是靠 L 的探針「順便」驗到的，那不可靠：改肋深就會無聲失效。
+    if all(k in p for k in ("POD_D", "POD_Y_SHT", "POD_RIB_D_SHT")):
+        rear = p["POD_D"] - (p["POD_Y_SHT"] + p["POD_RIB_D_SHT"])
+        if rear < 6.0:
+            problems.append(
+                f"C: 感測器艙定位肋背面到艙外只剩 {rear:.1f}mm，"
+                f"接線與杜邦頭插不下（需 ≥6mm）——縮肋深或加深 POD_D")
+        else:
+            notes.append(f"C: 感測器艙定位肋之後尚餘 {rear:.1f}mm 走線深度 ✓")
 
     # ── 5015 風扇 vs 風扇座 ──
     if p["FAN_SCREW_S"] >= p["FAN_W"]:
@@ -350,6 +446,24 @@ OPENSCAD_CANDIDATES = [
     "openscad",
 ]
 PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod"]
+
+# ── 外購元件（非列印件）──────────────────────────────────────
+# ★把外購件也放進干涉檢查★ 只驗殼對殼，等於默認「裡面一定塞得下」——
+#   而「裝不進去」是實體組裝最常見的失敗，也是最晚才發現的那一種。
+COMPONENTS = ["bowl", "matrix_r4", "pi5", "d4184", "blower",
+              "scd41", "sht31", "max6675", "tc_probe"]
+
+# 不納入干涉檢查的元件，以及★為什麼★。
+# 這裡不是用來讓紅字消失的——每一項都必須是「拿它去驗會驗到不存在的東西」，
+# 而不是「驗出來不好看」。（CLAUDE.md §5.2 第 6 條）
+COMP_NO_CHECK = {
+    "tc_probe": "目前沒有任何零件提供熱電偶支架，位置只是交接文件的規格目標，"
+                "不是已落實的設計。等支架做出來再納入檢查。",
+}
+
+# 刻意的接觸：外購件靠在殼上是正常的（爐盆坐在承接環、板卡坐在螺柱、
+# 風扇塞進凹槽）。這些給少量預算，真正要抓的是「穿進去」。
+COMP_CONTACT_BUDGET = 200      # mm³
 
 
 def find_openscad():
@@ -918,22 +1032,33 @@ def check_throughway():
 
     def run(zone, owner):
         out = tmp / f"t_{zone}.stl"
-        cmd = [exe, "-o", win_path(out) if is_exe else str(out),
-               "-D", f"$fn={CHECK_FN}", "-D", 'part="obstructed"',
-               "-D", f'PAIR_A="{zone}"', "-D", f'PAIR_B="{owner}"',
-               win_path(SCAD) if is_exe else str(SCAD)]
-        try:
-            subprocess.run(cmd, capture_output=True, text=True, timeout=300)
-        except Exception:
-            pass
-        return zone, out
+        probe = tmp / f"pr_{zone}.stl"
+
+        def go(part_name, dst, extra=()):
+            cmd = [exe, "-o", win_path(dst) if is_exe else str(dst),
+                   "-D", f"$fn={CHECK_FN}", "-D", f'part="{part_name}"',
+                   "-D", f'PAIR_A="{zone}"', *extra,
+                   win_path(SCAD) if is_exe else str(SCAD)]
+            scad_run(cmd, "L")
+
+        go("obstructed", out, ("-D", f'PAIR_B="{owner}"'))
+        go("probe", probe)          # ★探針自己也要算一次★
+        return zone, out, probe
 
     with ThreadPoolExecutor(max_workers=4) as ex:
         res = list(ex.map(lambda z: run(z[0], z[1]), THROUGHWAYS))
 
     info = {z: (o, d) for z, o, d in THROUGHWAYS}
     ok = 0
-    for zone, out in res:
+    for zone, out, probe in res:
+        # ★先確認探針本身有東西★ 探針是空的時候，交集必然是 0，
+        #   這條檢查會「通過」但其實完全沒驗——比失敗還危險。
+        pvol = mesh_volume(probe) if probe.exists() else 0.0
+        if pvol < 1.0:
+            problems.append(
+                f"L: {zone} 的探針算出來是空的（體積 {pvol:.1f}mm³）——"
+                f"這條檢查等於沒跑。多半是 throughway() 引用了看不見的變數")
+            continue
         vol = mesh_volume(out) if out.exists() else 0.0
         owner, desc = info[zone]
         if vol > THROUGH_BUDGET:
@@ -947,6 +1072,75 @@ def check_throughway():
     shutil.rmtree(tmp, ignore_errors=True)
     if ok == len(THROUGHWAYS):
         notes.append(f"L: {ok} 個功能性開口皆確認貫通（探針交集 ≈ 0）✓")
+
+
+# ── M：外購元件 vs 外殼 ─────────────────────────────────────────
+# 「殼印得出來」和「東西裝得進去」是兩件事。這一關把外購件也放進來，
+# 用同一組 place() 定位（所以組裝圖與檢查永遠一致），兩兩求交集。
+#
+# ★會抓到什麼★ 板卡連接器頂到壁、風扇塞不進凹槽、感測器模組比定位肋厚、
+#   爐盆坐不進承接環……這些在只驗殼的時候全都看不見。
+def check_components():
+    exe = find_openscad()
+    if not exe:
+        warnings.append("M: 找不到 OpenSCAD，跳過元件干涉檢查")
+        return
+    is_exe = exe.endswith(".exe")
+    tmp = Path(tempfile.mkdtemp(prefix=".scadchk_", dir=SCAD.parent))
+
+    live = [c for c in COMPONENTS if c not in COMP_NO_CHECK]
+    for c, why in COMP_NO_CHECK.items():
+        notes.append(f"M: {c} 不納入檢查 — {why}")
+
+    def render(args, out):
+        scad_run([exe, "-o", win_path(out) if is_exe else str(out),
+                  "-D", f"$fn={CHECK_FN}", *args,
+                  win_path(SCAD) if is_exe else str(SCAD)], "M")
+        return out
+
+    # 先拿包圍盒預篩（每個元件算一次，便宜）
+    boxes = {}
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {nm: ex.submit(render, ["-D", 'part="placed"', "-D", f'PAIR_A="{nm}"'],
+                              tmp / f"c_{nm}.stl") for nm in live + PARTS}
+        for nm, f in futs.items():
+            out = f.result()
+            if out.exists() and out.stat().st_size > 100:
+                boxes[nm] = aabb(mesh_tris(out))
+
+    missing = [c for c in live if c not in boxes]
+    if missing:
+        problems.append(f"M: 這些元件算不出幾何（定位或模組名有誤）：{missing}")
+
+    todo, skipped = [], 0
+    for i, a in enumerate(live):
+        for b in live[i + 1:] + PARTS:          # 元件×元件 ＋ 元件×外殼
+            if a in boxes and b in boxes and aabb_overlap(boxes[a], boxes[b]) == 0:
+                skipped += 1
+            else:
+                todo.append((a, b))
+
+    hits = []
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {(a, b): ex.submit(
+            render, ["-D", 'part="interference"', "-D", f'PAIR_A="{a}"',
+                     "-D", f'PAIR_B="{b}"'], tmp / f"i_{a}_{b}.stl")
+            for a, b in todo}
+        for (a, b), f in futs.items():
+            out = f.result()
+            v = mesh_volume(out) if out.exists() else 0.0
+            if v > COMP_CONTACT_BUDGET:
+                hits.append((a, b, v))
+
+    shutil.rmtree(tmp, ignore_errors=True)
+    for a, b, v in sorted(hits, key=lambda x: -x[2]):
+        problems.append(
+            f"M: {a} 與 {b} 互相穿透 {v:,.0f}mm³——實體裝不進去。"
+            f"（元件尺寸為估值，若判斷是估值不準，請實測後改 params.scad，"
+            f"不要調寬本檢查的預算）")
+    if not hits:
+        notes.append(f"M: {len(live)} 個外購元件與外殼皆無干涉"
+                     f"（{len(todo)} 組精算、{skipped} 組包圍盒預篩跳過）✓")
 
 
 def check_interference():
@@ -1039,13 +1233,24 @@ def check_interference():
 
 
 def main():
-    if not SCAD.exists():
-        print(f"找不到 {SCAD}")
-        sys.exit(1)
-    src = SCAD.read_text(encoding="utf-8")
+    for need in (SCAD, PARAMS):
+        if not need.exists():
+            print(f"找不到 {need}")
+            sys.exit(1)
+    src, files = all_sources()
     p = load_params(src)
+    notes.insert(0, f"來源 {len(files)} 個 .scad（參數集中在 {PARAMS.name}）")
 
     check_syntax(src)
+    NEEDED = ["NOZZLE", "WALL", "FLOOR", "FIT", "CHAMFER", "BASE_W", "BASE_D",
+              "BASE_H", "CHMB_W", "CHMB_D", "CHMB_H", "HOOD_H", "HOOD_TOP_W",
+              "BOWL_D", "BOWL_H", "AIR_GAP", "POD_W", "POD_D", "POD_H",
+              "FAN_W", "FAN_H", "FAN_T", "DUCT_W", "DUCT_H", "BED"]
+    lost = [k for k in NEEDED if k not in p]
+    if lost:
+        problems.append(
+            f"B: 這些參數解析不到：{lost}——後面的檢查會拿不到值而靜默略過，"
+            f"所以這裡先擋下來。多半是 params.scad 的註解或語法讓解析器提早收尾")
     if not p:
         problems.append("B: 參數區解析失敗")
     else:
@@ -1063,6 +1268,7 @@ def main():
             check_baseline(meshes, boxes)
         check_clearance()
         check_throughway()
+        check_components()
 
     print("=" * 70)
     for n in notes:
