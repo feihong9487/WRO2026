@@ -177,6 +177,23 @@ FAN_CURRENT_A    = 0.2           # 5015 每顆
 CTRL_CURRENT_A   = 0.5           # MATRIX Mini R4 板子本身
 PSU_MARGIN       = 0.8           # 電源使用率上限（留 20% 餘裕）
 
+# ── ★現行建置 vs 完整設計★ ────────────────────────────────
+# MAGNET_COUNT / FAN_COUNT 描述的是「完整廟宇爐」（P3）。
+# 桌上型展示機（目前的 P0/P1）實際掛在 12V 上的只有控制器與 1 顆風扇——
+# 電磁鐵根本還沒有，電路圖上也沒有。
+#   佐證：電路設計/kicad/佈線定義.py 只有一個 Fan-5015、沒有任何電磁鐵，
+#         且 +12V 只出現在 MATRIX R4 的 VIN 與 D4184 的 VIN+ 兩處。
+# 兩者混為一談的後果是「用未來的負載去判現在的電源夠不夠」——
+# 結論會是錯的，而且方向還相反：現況其實很寬裕。
+FAN_COUNT_NOW    = 1             # 與 佈線定義.py 一致（跨層規則會比對）
+MAGNET_COUNT_NOW = 0             # 磁力矩陣屬 P3，尚未進電路
+
+# 無刷風扇的啟動突波倍率。★這才是這條匯流排真正的暫態★——
+# 直流電磁鐵是電阻電感負載，電流是往 V/R 指數上升、不會過衝，沒有湧入問題；
+# 會有大啟動電流的是馬達（風扇）與電容性負載。
+FAN_STARTUP_FACTOR = 2.5         # ★估值，未實測★
+FAN_STARTUP_MEASURED = False
+
 # ── 過濾鏈壓損（決定風扇選型是否足夠）──
 # 5015 鼓風扇靜壓有限，三段過濾串聯的壓損不可忽視
 FILTER_PRESSURE_DROP_PA = {"金屬紗網": 5.0, "HEPA": 120.0, "活性碳濾棉": 40.0}
@@ -243,6 +260,8 @@ SCOPE_CORE = {
     "test_韌體聯鎖門檻需與參數檔同步",
     "test_臨時安全門檻必須被標記",
     "test_鎖固一律使用M4且例外必須有物理理由",
+    "test_現行配置的12V電流須在電源餘裕內",
+    "test_現行風扇數需與電路圖一致",
 }
 
 SCOPE_LATER = {
@@ -292,10 +311,31 @@ def sleeve_required_force_n() -> float:
     return weight * (1 + FRICTION_COEFF)
 
 
-def total_current_draw_a() -> float:
-    """12V 匯流排總電流估算（電磁鐵同時作動為最壞情況）。"""
-    return (MAGNET_COUNT * MAGNET_CURRENT_A
-            + FAN_COUNT * FAN_CURRENT_A
+def total_current_draw_a(config: str = "full") -> float:
+    """
+    12V 匯流排穩態總電流估算。
+
+    config="full"（預設）：完整廟宇爐，電磁鐵同時作動的最壞情況
+    config="now"         ：桌上型展示機的實際配置（無電磁鐵、1 顆風扇）
+
+    預設維持 "full"，這樣既有的 P3 規則行為完全不變。
+    """
+    mag = MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW
+    fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
+    return mag * MAGNET_CURRENT_A + fan * FAN_CURRENT_A + CTRL_CURRENT_A
+
+
+def peak_current_draw_a(config: str = "full") -> float:
+    """
+    含風扇啟動突波的瞬時峰值。
+
+    穩態過關不代表開機那一瞬間過關——風扇啟動時電流是穩態的數倍，
+    電源若在此時觸發過流保護，整台機器會在每次開風扇時重啟。
+    """
+    mag = MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW
+    fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
+    return (mag * MAGNET_CURRENT_A
+            + fan * FAN_CURRENT_A * FAN_STARTUP_FACTOR
             + CTRL_CURRENT_A)
 
 
@@ -314,5 +354,6 @@ def unmeasured_items() -> List[str]:
     if not NEAR_CENSER_TEMP_MEASURED: items.append("近爐區實際溫度")
     if not MAGNET_CURRENT_MEASURED:   items.append("電磁鐵實際電流")
     if not FAN_PRESSURE_MEASURED:     items.append("風扇靜壓（含過濾壓損下的實際風量）")
+    if not FAN_STARTUP_MEASURED:      items.append("風扇啟動突波倍率")
     if not SENSOR_ZONE_TEMP_MEASURED: items.append("感測器艙實際溫度")
     return items

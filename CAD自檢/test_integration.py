@@ -193,6 +193,52 @@ def test_12V匯流排電流不可超過電源供給():
         f"需加大電源或錯開電磁鐵作動時序")
 
 
+def test_現行配置的12V電流須在電源餘裕內():
+    """
+    ★驗「現在這台」，不是「未來那台」★
+
+    test_12V匯流排電流不可超過電源供給 算的是完整廟宇爐（2 電磁鐵＋2 風扇），
+    那屬 P3。但在它被做出來之前，沒有任何規則在看「桌上型展示機現在夠不夠」——
+    而電源不足的症狀是開風扇就重啟，那是實機階段最難查的一類故障。
+
+    這裡同時看穩態與峰值：穩態過關不代表開機瞬間過關，
+    風扇是無刷馬達，啟動電流是穩態的數倍。
+    （直流電磁鐵反而沒有這個問題——電阻電感負載的電流是指數上升，不會過衝。）
+    """
+    budget = P.PSU_CURRENT_A * P.PSU_MARGIN
+    steady = P.total_current_draw_a("now")
+    peak = P.peak_current_draw_a("now")
+    assert steady <= budget, (
+        f"現行配置穩態 {steady:.2f}A 超過電源可用量 {budget:.2f}A")
+    assert peak <= budget, (
+        f"現行配置峰值 {peak:.2f}A（含風扇啟動突波 {P.FAN_STARTUP_FACTOR}×）"
+        f"超過電源可用量 {budget:.2f}A——開風扇的瞬間會觸發過流保護，"
+        f"症狀是每次啟動風扇整台機器就重開")
+
+
+def test_現行風扇數需與電路圖一致():
+    """
+    MAGNET_COUNT_NOW / FAN_COUNT_NOW 是「現在實際接了幾個」的宣告，
+    宣告錯了，上面那條電流規則就是拿錯的負載在驗。
+    所以直接去數電路圖上的風扇，兩邊對不上就擋下來。
+    """
+    net = HERE / ".." / "電路設計" / "kicad" / "佈線定義.py"
+    if not net.exists():
+        return
+    src = net.read_text(encoding="utf-8")
+    n_fan = len(re.findall(r'name="Fan-\w+"', src))
+    if n_fan == 0:
+        return
+    assert n_fan == P.FAN_COUNT_NOW, (
+        f"電路圖上有 {n_fan} 顆風扇，但 mech_params 宣告現行配置 "
+        f"FAN_COUNT_NOW={P.FAN_COUNT_NOW}——電流預算會驗到錯的負載")
+    # 電磁鐵若已進電路，MAGNET_COUNT_NOW 就不能還寫 0
+    n_mag = len(re.findall(r'name="(?:Solenoid|Magnet|EM)[-\w]*"', src))
+    assert n_mag == P.MAGNET_COUNT_NOW, (
+        f"電路圖上有 {n_mag} 個電磁鐵，但宣告 MAGNET_COUNT_NOW="
+        f"{P.MAGNET_COUNT_NOW}")
+
+
 def test_電磁鐵吸力餘裕在實測前不可寫進報告結論():
     """
     標稱 20N 是零氣隙貼合值，有 3mm 氣隙時衰減很大。
