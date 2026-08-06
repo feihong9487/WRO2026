@@ -30,6 +30,12 @@ import sys
 import traceback
 from pathlib import Path
 
+# ★不要寫／不要用 .pyc★ 2026-08-07 踩到：sed 把 `= 2` 改成 `= 1`，
+#   字元數相同、mtime 又落在同一秒，Python 的快取檢查（size + mtime）判定沒變，
+#   於是測試讀到的是舊值——負向測試「通過」了，其實驗的是改之前的參數。
+#   測試執行器讀到過期的參數，比測試失敗更危險。
+sys.dont_write_bytecode = True
+
 ROOT = Path(__file__).parent
 SKIP_DIRS = {".git", "__pycache__", ".claude", "node_modules"}
 
@@ -50,6 +56,7 @@ def find_test_files(targets):
 
 
 def load_module(path):
+    importlib.invalidate_caches()
     """
     以檔案所在目錄為匯入根載入模組。
 

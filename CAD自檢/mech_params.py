@@ -170,7 +170,9 @@ SENSOR_ZONE_TEMP_MEASURED = False  # ← 待實測
 
 # ── 電源預算（12V 匯流排）──
 PSU_VOLTAGE_V   = 12.0
-PSU_CURRENT_A   = 2.0            # 現行 BOM：12V 2A
+PSU_CURRENT_A   = 3.0            # BOM：12V 3A（2026-08-07 決定，搭配電磁鐵互鎖）
+# ★3A 是「搭配互鎖」才夠★ 若拿掉互鎖讓兩顆電磁鐵同時吸，
+#   峰值 2.50A 會超過 3A×80%＝2.40A 的可用量——那時要換 4A。
 MAGNET_CURRENT_A = 0.5           # 電磁鐵每顆估計電流（12V 20N 常見值）
 MAGNET_CURRENT_MEASURED = False  # ← 待實測（標稱吸力不等於標稱電流）
 FAN_CURRENT_A    = 0.2           # 5015 每顆
@@ -193,6 +195,14 @@ MAGNET_COUNT_NOW = 0             # 磁力矩陣屬 P3，尚未進電路
 # 會有大啟動電流的是馬達（風扇）與電容性負載。
 FAN_STARTUP_FACTOR = 2.5         # ★估值，未實測★
 FAN_STARTUP_MEASURED = False
+
+# ── 電磁鐵互鎖（2026-08-07 決定）────────────────────────────
+# 一次只准吸一顆。這不是韌體的實作細節，是★電源預算依賴的設計約束★：
+#   有互鎖：峰值 2.00A ≤ 3A×80%＝2.40A ✓
+#   無互鎖：峰值 2.50A ＞ 2.40A ✗（那就得換 4A）
+# 所以互鎖一旦沒做，電源就不夠——這個相依關係必須被追蹤，不能只寫在註解裡。
+MAGNET_SIMULTANEOUS_MAX = 1
+MAGNET_INTERLOCK_IMPLEMENTED = False   # ← P3 韌體做出互鎖後才可改 True
 
 # ── 過濾鏈壓損（決定風扇選型是否足夠）──
 # 5015 鼓風扇靜壓有限，三段過濾串聯的壓損不可忽視
@@ -262,9 +272,12 @@ SCOPE_CORE = {
     "test_鎖固一律使用M4且例外必須有物理理由",
     "test_現行配置的12V電流須在電源餘裕內",
     "test_現行風扇數需與電路圖一致",
+    "test_電源預算依賴的設計約束不可被遺忘",
+    "test_列出電源預算的待辦約束",
 }
 
 SCOPE_LATER = {
+    "test_完整設計的12V峰值須在電源餘裕內",
     # P3 機構：插孔板、導正套筒、磁力矩陣、過濾鏈
     # 已完成設計但尚未進入實作，其參數多為估計值
     "test_近爐區絕對不可使用PLA", "test_近爐零件的耐熱溫度必須高於熱區溫度",
@@ -320,7 +333,8 @@ def total_current_draw_a(config: str = "full") -> float:
 
     預設維持 "full"，這樣既有的 P3 規則行為完全不變。
     """
-    mag = MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW
+    mag = (min(MAGNET_COUNT, MAGNET_SIMULTANEOUS_MAX) if config == "full"
+           else MAGNET_COUNT_NOW)
     fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
     return mag * MAGNET_CURRENT_A + fan * FAN_CURRENT_A + CTRL_CURRENT_A
 
@@ -332,11 +346,29 @@ def peak_current_draw_a(config: str = "full") -> float:
     穩態過關不代表開機那一瞬間過關——風扇啟動時電流是穩態的數倍，
     電源若在此時觸發過流保護，整台機器會在每次開風扇時重啟。
     """
-    mag = MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW
+    mag = (min(MAGNET_COUNT, MAGNET_SIMULTANEOUS_MAX) if config == "full"
+           else MAGNET_COUNT_NOW)
     fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
     return (mag * MAGNET_CURRENT_A
             + fan * FAN_CURRENT_A * FAN_STARTUP_FACTOR
             + CTRL_CURRENT_A)
+
+
+def pending_design_constraints() -> List[str]:
+    """
+    電源預算「假設成立、但還沒實作」的設計約束。
+
+    ★為什麼要獨立列出來★ 這類約束一旦被遺忘，帳面上的數字仍然漂亮，
+    實體卻會在最壞情況下失效——而且失效時看起來像隨機當機，最難查。
+    """
+    out = []
+    if MAGNET_SIMULTANEOUS_MAX < MAGNET_COUNT and not MAGNET_INTERLOCK_IMPLEMENTED:
+        out.append(
+            f"電磁鐵互鎖（一次最多 {MAGNET_SIMULTANEOUS_MAX} 顆，共 {MAGNET_COUNT} 顆）"
+            f"——P3 韌體尚未實作；沒有它 12V 峰值會是 "
+            f"{MAGNET_COUNT * MAGNET_CURRENT_A + FAN_COUNT * FAN_CURRENT_A * FAN_STARTUP_FACTOR + CTRL_CURRENT_A:.2f}A，"
+            f"超過 {PSU_CURRENT_A}A×{PSU_MARGIN:.0%}＝{PSU_CURRENT_A * PSU_MARGIN:.2f}A")
+    return out
 
 
 def filter_chain_pressure_drop_pa() -> float:

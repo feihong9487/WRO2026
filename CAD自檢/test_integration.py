@@ -239,6 +239,66 @@ def test_現行風扇數需與電路圖一致():
         f"{P.MAGNET_COUNT_NOW}")
 
 
+def test_完整設計的12V峰值須在電源餘裕內():
+    """
+    既有的 test_12V匯流排電流 只看穩態。但這條匯流排真正的暫態來自風扇
+    （無刷馬達，啟動約 FAN_STARTUP_FACTOR 倍），穩態過關不代表開機瞬間過關。
+    """
+    budget = P.PSU_CURRENT_A * P.PSU_MARGIN
+    peak = P.peak_current_draw_a("full")
+    assert peak <= budget, (
+        f"完整設計峰值 {peak:.2f}A 超過 {budget:.2f}A"
+        f"（{P.PSU_CURRENT_A}A × 餘裕 {P.PSU_MARGIN:.0%}）——"
+        f"風扇啟動瞬間會觸發過流保護")
+
+
+def test_電源預算依賴的設計約束不可被遺忘():
+    """
+    ★這條在守一個很容易失守的東西★
+    3A 電源夠用的前提是「電磁鐵一次只吸一顆」。這個互鎖若沒做，
+    帳面數字仍然漂亮，實體卻會在兩顆同時吸的瞬間拉到 2.50A 而超出餘裕——
+    症狀是偶發當機，最難查的那一類。
+
+    所以：只要預算依賴互鎖而互鎖還沒實作，就必須出現在待辦清單裡；
+    而且一旦 P3 韌體真的開始驅動電磁鐵，就必須看得到互鎖的實作。
+    """
+    relies = P.MAGNET_SIMULTANEOUS_MAX < P.MAGNET_COUNT
+    if not relies:
+        return
+
+    pending = P.pending_design_constraints()
+    assert P.MAGNET_INTERLOCK_IMPLEMENTED or pending, (
+        "電源預算依賴電磁鐵互鎖，但互鎖既未實作、也沒被列進待辦清單——"
+        "這個相依關係會被遺忘")
+
+    if not INO.exists():
+        return
+    src = INO.read_text(encoding="utf-8")
+    drives_magnet = bool(re.search(r"MAGNET|SOLENOID|電磁鐵", src, re.I))
+    has_interlock = bool(re.search(
+        r"MAGNET_SIMULTANEOUS|activeMagnets|magnetBusy|一次只", src, re.I))
+
+    # 旗標宣稱做好了，就必須在韌體裡看得到——
+    # 否則只要把旗標翻成 True 就能讓這條規則失效（等同 §5.2 第 5 條的旗標紅線）
+    if P.MAGNET_INTERLOCK_IMPLEMENTED:
+        assert has_interlock, (
+            "MAGNET_INTERLOCK_IMPLEMENTED 標為 True，但韌體裡找不到互鎖的實作——"
+            "旗標不可先於實作翻開（CLAUDE.md §5.2 第 5 條同理）")
+
+    # 韌體若已經在驅動電磁鐵，互鎖就不能只是「待辦」
+    if drives_magnet:
+            assert has_interlock, (
+                "韌體已經在驅動電磁鐵，但找不到互鎖（一次只吸一顆）的實作——"
+                f"沒有它峰值 {P.MAGNET_COUNT * P.MAGNET_CURRENT_A + P.FAN_COUNT * P.FAN_CURRENT_A * P.FAN_STARTUP_FACTOR + P.CTRL_CURRENT_A:.2f}A "
+                f"會超過電源可用量 {P.PSU_CURRENT_A * P.PSU_MARGIN:.2f}A")
+
+
+def test_列出電源預算的待辦約束():
+    """把待辦印出來，讓它每次跑測試都被看見（不判定成敗）。"""
+    for c in P.pending_design_constraints():
+        print(f"  ★電源預算待辦★ {c}")
+
+
 def test_電磁鐵吸力餘裕在實測前不可寫進報告結論():
     """
     標稱 20N 是零氣隙貼合值，有 3mm 氣隙時衰減很大。
