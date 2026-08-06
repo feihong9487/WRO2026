@@ -407,6 +407,37 @@ def test_S2高峰duty需明顯高於S1常態():
         f"S2 duty {s2:.0f} 僅為 S1 {s1:.0f} 的 {s2/s1:.1f} 倍，削峰效果不明顯")
 
 
+def test_CO2硬警報必須維持絕對門檻():
+    """
+    2026-08-07 把 FSM 的 S0/S1/S2 門檻改成相對於背景基線——那是對的，
+    因為分級是「相對於此地此刻的正常值」的判斷。
+
+    ★但硬警報不可以跟著相對化★
+      1500ppm 是健康門檻，不是「比平常高一點」。基線本身若已經很高
+      （人擠人的展場、通風不良的廟宇），那正是最需要強制換氣的時候——
+      這時把門檻跟著抬高，等於在最該作動的情境下把保護關掉。
+      相對化會讓它變成「越糟越不管」。
+
+    這條規則就是把「硬警報維持絕對」這件事釘住。
+    """
+    if not INO_V:
+        return
+    alarm = INO_V.get("CO2_ALARM_PPM")
+    assert alarm is not None, "韌體找不到 CO2_ALARM_PPM"
+    assert alarm > 0, "硬警報門檻必須是正的絕對值"
+
+    src = INO.read_text(encoding="utf-8") if INO.exists() else ""
+    # ★要檢查「每一個」賦值，不能只看第一個★
+    #   co2Alarm 的第一個賦值是宣告 `bool co2Alarm = false;`，
+    #   re.search 抓到它就停了，真正的判定式在幾十行之後——
+    #   這條檢查原本因此完全沒驗到東西（2026-08-07 負向測試才發現）。
+    for expr in re.findall(r"co2Alarm\s*=\s*([^;]+);", src):
+        assert "Baseline" not in expr and "base" not in expr, (
+            f"硬警報的判定式引用了基線（{expr.strip()}）——"
+            f"基線高的時候正是最需要強制換氣的時候，"
+            f"相對化等於在最該作動的情境下把保護關掉")
+
+
 def test_安全狀態必須停止致動():
     if not INO_V or "DUTY_S0" not in INO_V:
         return

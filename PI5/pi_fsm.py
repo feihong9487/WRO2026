@@ -39,13 +39,48 @@ SENSOR_SOURCE = "SERIAL"
 # ========================
 
 # ---- 門檻與輸出（桌面測試值；燃燒艙實驗後再調） ----
-CO2_IDLE       = 600     # 低於此持續 IDLE_HOLD_S 秒 → S0 待機
-T1             = 900     # 進 S2（暫由 CO2 代打 PM 門檻）
-T1_EXIT        = 800     # 退 S2（遲滯，T1' < T1）
+# ★門檻相對於背景基線，不是絕對值★（2026-08-07，與 R4 韌體同步）
+#   絕對門檻只在背景穩定時成立。安靜的廟宇清晨約 450ppm，
+#   人多的展場大廳 1000–2000ppm——用絕對值在展場會永遠卡在 S2、
+#   S0 永遠到不了，分級響應完全看不出來。廟宇實裝也會隨季節與通風漂移。
+#   基線＝過去 BASELINE_WINDOW_MIN 分鐘內每分鐘最小值的最小值。
+#   ★取最小不取平均★：要的是「沒人時的底」；用平均會被人潮拉高，
+#   變成「人越多門檻越高」的正回饋，方向剛好相反。
+CO2_IDLE_DELTA = 50      # 高於基線 <50 且持續 → S0 待機
+T1_DELTA       = 300     # 高於基線 300 → 進 S2（呼氣即可達到）
+T1_EXIT_DELTA  = 200     # 退 S2（遲滯）
+BASELINE_WINDOW_MIN = 10
+CO2_BASELINE_INIT   = 450
 SLOPE_TH       = 120.0   # ppm/min，CO2 前饋門檻 θ_ff
 IDLE_HOLD_S    = 60
 SENSOR_STALE_S = 10      # 感測資料多久沒更新視為失聯
 DUTY = {"S0": 0, "S1": 70, "S2": 220, "S3": 0}   # 0-255
+
+# ── CO2 背景基線（與 R4 韌體同一套演算法）──────────────────
+_buckets: list = [None] * BASELINE_WINDOW_MIN
+_bucket_idx = 0
+_bucket_min = None
+_bucket_start = time.time()
+
+
+def baseline_update(v: int) -> None:
+    """每分鐘記一個「該分鐘的最小值」，滾動保留 BASELINE_WINDOW_MIN 個。"""
+    global _bucket_idx, _bucket_min, _bucket_start
+    if not v:
+        return                                  # 無效讀值不進基線
+    _bucket_min = v if _bucket_min is None else min(_bucket_min, v)
+    if time.time() - _bucket_start >= 60:
+        _buckets[_bucket_idx] = _bucket_min
+        _bucket_idx = (_bucket_idx + 1) % BASELINE_WINDOW_MIN
+        _bucket_min = None
+        _bucket_start = time.time()
+
+
+def co2_baseline() -> int:
+    vals = [b for b in _buckets if b is not None]
+    if vals:
+        return min(vals)
+    return _bucket_min if _bucket_min is not None else CO2_BASELINE_INIT
 
 latest, r4 = {}, {}
 latest_t = 0.0
@@ -134,6 +169,7 @@ def main():
             age = time.time() - latest_t if latest_t else 999
 
         co2 = s.get("co2", 0) or 0
+        baseline_update(co2)                 # 每筆有效讀值都餵給基線追蹤
         slope = s.get("slope", 0.0) or 0.0
         action = ""
 
@@ -152,16 +188,19 @@ def main():
             state = "S1"                     # 感測失聯 → 保守常態換氣，交由 S3 警報線兜底
             action = "SENSOR_STALE"
         else:
-            if state in ("S0", "S1") and (co2 > T1 or slope > SLOPE_TH):
+            base = co2_baseline()
+            th_s2, th_s2ex = base + T1_DELTA, base + T1_EXIT_DELTA
+            th_idle = base + CO2_IDLE_DELTA
+            if state in ("S0", "S1") and (co2 > th_s2 or slope > SLOPE_TH):
                 state = "S2"                 # 前饋削峰：人潮（CO2 斜率）先行
-            elif state == "S2" and co2 < T1_EXIT and slope < SLOPE_TH / 2:
+            elif state == "S2" and co2 < th_s2ex and slope < SLOPE_TH / 2:
                 state = "S1"                 # 遲滯退場，避免抖動
-            elif state == "S1" and co2 and co2 < CO2_IDLE:
+            elif state == "S1" and co2 and co2 < th_idle:
                 if idle_since is None:
                     idle_since = time.time()
                 elif time.time() - idle_since > IDLE_HOLD_S:
                     state = "S0"
-            if co2 >= CO2_IDLE:
+            if co2 >= th_idle:
                 idle_since = None
                 if state == "S0":
                     state = "S1"

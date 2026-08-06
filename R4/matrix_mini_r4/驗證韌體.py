@@ -79,9 +79,13 @@ def const_py(src, name):
 def check_thresholds(ino, py):
     """本地 FSM 門檻必須與 pi_fsm.py 相同。"""
     pairs = [
-        ("CO2_IDLE",     "CO2_IDLE",       1),
-        ("T1",           "T1",             1),
-        ("T1_EXIT",      "T1_EXIT",        1),
+        # 2026-08-07 改為相對基線的門檻，常數跟著換名——
+        # 兩層必須用同一組 delta，否則降級（Pi 失聯 → R4 接手）時行為會跳。
+        ("CO2_IDLE_DELTA", "CO2_IDLE_DELTA", 1),
+        ("T1_DELTA",       "T1_DELTA",       1),
+        ("T1_EXIT_DELTA",  "T1_EXIT_DELTA",  1),
+        ("BASELINE_WINDOW_MIN", "BASELINE_WINDOW_MIN", 1),
+        ("CO2_BASELINE_INIT",   "CO2_BASELINE_INIT",   1),
         ("SLOPE_TH",     "SLOPE_TH",       1),
         ("T_LOCK",       None,             None),   # 僅韌體有
         ("T_RELEASE",    None,             None),

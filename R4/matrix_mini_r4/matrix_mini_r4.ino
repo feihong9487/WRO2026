@@ -118,9 +118,24 @@ const uint8_t  FALLBACK_DUTY = 80;      // Pi 與感測皆失效時的後備轉�
 const uint16_t CO2_ALARM_PPM   = 1500;  // CO2 硬警報門檻（呼氣即可觸發，方便驗證）
 const uint32_t SENSOR_STALE_MS = 15000; // SCD41 多久沒有效讀值視為感測失效（更新週期 5s）
 // 本地簡化 FSM（與 pi_fsm.py 的門檻一致，確保降級前後行為連續）
-const uint16_t CO2_IDLE    = 600;       // 低於此持續 IDLE_HOLD_MS → S0 待機
-const uint16_t T1          = 900;       // 進 S2（暫由 CO2 代打 PM 門檻）
-const uint16_t T1_EXIT     = 800;       // 退 S2（遲滯，T1' < T1）
+//
+// ★門檻改成「相對於背景基線」，不是絕對值★（2026-08-07）
+//   絕對門檻只在背景穩定時成立。實際上背景差異很大：
+//     安靜的廟宇清晨 ~450ppm　｜　人多的展場大廳 1000–2000ppm
+//   用絕對值的話，在展場會永遠卡在 S2（背景就超過 T1=900）、
+//   S0 永遠到不了（背景就超過 600），分級響應完全看不出來。
+//   對廟宇實裝也一樣——季節、通風、時段都會讓背景漂移。
+//
+//   基線＝過去 BASELINE_WINDOW_MIN 分鐘內每分鐘最小值的最小值。
+//   取最小值而不是平均，是因為要的是「沒人時的底」，
+//   平均會被人潮本身拉高，變成「人越多門檻越高」的正回饋。
+const uint16_t CO2_IDLE_DELTA = 50;     // 高於基線 <50 且持續 → S0 待機
+const uint16_t T1_DELTA       = 300;    // 高於基線 300 → 進 S2（呼氣即可達到）
+const uint16_t T1_EXIT_DELTA  = 200;    // 退 S2（遲滯）
+const uint8_t  BASELINE_WINDOW_MIN = 10;
+const uint16_t CO2_BASELINE_INIT = 450; // 開機尚無資料時的保守起始值
+// 斜率本來就與基線無關（是變化率），所以維持絕對值——
+// 這也是為什麼前饋觸發在任何場地都成立，不需要校正。
 const float    SLOPE_TH    = 120.0;     // ppm/min，CO2 前饋門檻 θ_ff
 const uint32_t IDLE_HOLD_MS = 60000;
 
@@ -207,6 +222,7 @@ void readSensors()
         muxSelect(CH_SCD41);
         if (scd41.readMeasurement()) {
             co2   = scd41.getCO2();
+            baselineUpdate(co2);          // 每筆有效讀值都餵給基線追蹤
             tScd  = scd41.getTemperature();
             rhScd = scd41.getHumidity();
             pushSample(co2);
@@ -241,6 +257,45 @@ void readSensors()
 // ═══════════════════════════════════════════════════════════════════════════
 // 本地簡化 FSM（Pi 失聯時接手；門檻與 pi_fsm.py 一致）
 // ═══════════════════════════════════════════════════════════════════════════
+// ── CO2 背景基線 ────────────────────────────────────────────
+// 每分鐘記一個「該分鐘的最小值」，基線＝窗內所有分鐘桶的最小值。
+// ★取最小不取平均★：要的是「沒人時的底」。用平均的話，人潮本身會把
+// 基線拉高，門檻跟著水漲船高——變成「人越多越不作動」的正回饋，剛好相反。
+uint16_t co2Buckets[BASELINE_WINDOW_MIN];
+uint8_t  bucketIdx = 0;
+uint16_t bucketMin = 0xFFFF;
+uint32_t bucketStart = 0;
+bool     baselineReady = false;
+
+void baselineInit()
+{
+    for (uint8_t i = 0; i < BASELINE_WINDOW_MIN; i++) co2Buckets[i] = 0xFFFF;
+    bucketStart = millis();
+}
+
+void baselineUpdate(uint16_t v)
+{
+    if (v == 0) return;                       // 無效讀值不進基線
+    if (v < bucketMin) bucketMin = v;
+    if (millis() - bucketStart >= 60000UL) {
+        co2Buckets[bucketIdx] = bucketMin;
+        bucketIdx = (bucketIdx + 1) % BASELINE_WINDOW_MIN;
+        bucketMin = 0xFFFF;
+        bucketStart = millis();
+        baselineReady = true;
+    }
+}
+
+uint16_t co2Baseline()
+{
+    uint16_t m = 0xFFFF;
+    for (uint8_t i = 0; i < BASELINE_WINDOW_MIN; i++)
+        if (co2Buckets[i] < m) m = co2Buckets[i];
+    // 還沒滿一分鐘時用當前桶；連當前桶都沒有就用保守起始值
+    if (m == 0xFFFF) m = (bucketMin != 0xFFFF) ? bucketMin : CO2_BASELINE_INIT;
+    return m;
+}
+
 uint8_t localFSM()
 {
     // 安全事件優先——對應 pi_fsm.py 的 anomaly 分支
@@ -267,18 +322,24 @@ uint8_t localFSM()
     bool isS1 = (strcmp(localState, "S1") == 0);
     bool isS2 = (strcmp(localState, "S2") == 0);
 
-    if ((isS0 || isS1) && (co2 > T1 || slopePpmMin > SLOPE_TH)) {
+    // 門檻相對於背景基線——同一套邏輯在清晨的廟宇與人擠人的展場都成立
+    uint16_t base   = co2Baseline();
+    uint16_t thS2   = base + T1_DELTA;
+    uint16_t thS2Ex = base + T1_EXIT_DELTA;
+    uint16_t thIdle = base + CO2_IDLE_DELTA;
+
+    if ((isS0 || isS1) && (co2 > thS2 || slopePpmMin > SLOPE_TH)) {
         strcpy(localState, "S2");          // 前饋削峰：人潮（CO2 斜率）先行
-    } else if (isS2 && co2 < T1_EXIT && slopePpmMin < SLOPE_TH / 2) {
+    } else if (isS2 && co2 < thS2Ex && slopePpmMin < SLOPE_TH / 2) {
         strcpy(localState, "S1");          // 遲滯退場，避免抖動
-    } else if (isS1 && co2 != 0 && co2 < CO2_IDLE) {
+    } else if (isS1 && co2 != 0 && co2 < thIdle) {
         if (idleSince == 0) {
             idleSince = millis();
         } else if (millis() - idleSince > IDLE_HOLD_MS) {
             strcpy(localState, "S0");
         }
     }
-    if (co2 >= CO2_IDLE) {
+    if (co2 >= thIdle) {
         idleSince = 0;
         if (strcmp(localState, "S0") == 0) strcpy(localState, "S1");
     }
@@ -348,6 +409,8 @@ void setup()
 
     pinMode(PIN_FAN, OUTPUT);
     analogWrite(PIN_FAN, 0);      // 上電先確保風扇停止
+
+    baselineInit();               // CO2 背景基線的分鐘桶
 
     // MATRIX 板級初始化（STM32、OLED、LED、蜂鳴器、馬達/伺服預備）
     // 註：內部有 while(!Mn.begin()) 迴圈，STM32 未就緒會停在這裡——
@@ -441,6 +504,9 @@ void loop()
         //   原 r4_actuator_node.ino 也是用 Serial.print(x, 2) 迴避此問題。
         Serial.print(F("{\"ts\":"));            Serial.print(millis());
         Serial.print(F(",\"co2\":"));           Serial.print(co2);
+        // ★基線一併回報★ 展示時評審看得到「現在的底是多少、呼氣讓它超出多少」，
+        // 而不是只看到一個沒有參照的絕對數字——分級的依據才說得清楚。
+        Serial.print(F(",\"co2_base\":"));      Serial.print(co2Baseline());
         Serial.print(F(",\"slope\":"));         Serial.print(slopePpmMin, 1);
         Serial.print(F(",\"t_scd\":"));         Serial.print(j(tScd), 2);
         Serial.print(F(",\"rh_scd\":"));        Serial.print(j(rhScd), 1);
