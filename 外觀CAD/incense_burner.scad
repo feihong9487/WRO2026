@@ -317,8 +317,13 @@ module dispatch() {
     else if (part == "probe")        throughway(PAIR_A);          // ★探針自己★（防檢查空轉）
     else if (part == "shell")        shell_only(0);               // 只有列印件
     else if (part == "component")    placed(PAIR_A);              // 定位後的單一元件
+    else if (part == "solo")         part_by_name(PAIR_A);        // 未定位的單一零件／元件
     else if (part == "none")         ;                          // 供 include 時不算繪
-    else                             assembly(0);
+    // ★不要靜默退回組合件★ 打錯名字時退回 assembly 是「算得出東西、
+    //   但算的是別的東西」——2026-08-06 匯出 STEP 時踩到：元件名稱在這裡
+    //   沒有對應分支，於是每個元件都在算整台組合件，一個爐盆跑了十幾分鐘。
+    else                             assert(false, str("未知的 part：", part,
+                                             "（單件請用 solo/placed ＋ PAIR_A）"));
 }
 
 if (SECTION) {

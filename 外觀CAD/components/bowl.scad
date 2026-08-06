@@ -15,9 +15,9 @@ include <../params.scad>
 // 常見不鏽鋼碗／香灰盆。非列印件——燃燒由金屬承接，塑膠不接觸火源。
 module bowl() {
     color("#b9bec4") difference() {
-        cylinder(h = BOWL_H, d = BOWL_D, $fn = 160);
+        cylinder(h = BOWL_H, d = BOWL_D, $fn = BOWL_FN);
         translate([0, 0, BOWL_WALL])
-            cylinder(h = BOWL_H, d = BOWL_D - BOWL_WALL * 2, $fn = 160);
+            cylinder(h = BOWL_H, d = BOWL_D - BOWL_WALL * 2, $fn = BOWL_FN);
     }
 }
 

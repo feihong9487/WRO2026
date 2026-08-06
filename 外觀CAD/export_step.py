@@ -31,10 +31,11 @@ OpenSCAD 匯不出 STEP——它是網格／CSG，不是 B-rep。所以這裡走
       .venv/bin/python -m pip install cadquery-ocp
   然後用 .venv/bin/python 執行本檔。
 
-用法：
-  python3 export_step.py              # 全部零件 ＋ 元件 ＋ 組合件
-  python3 export_step.py --fn 48      # 降低圓弧細分（檔案更小、更粗）
-  python3 export_step.py --parts-only # 只出列印件，不含外購元件
+用法（要用裝了 cadquery-ocp 的那個 venv 的 python 跑）：
+  .venv/bin/python export_step.py                  # 零件 ＋ 元件 ＋ 組合件
+  .venv/bin/python export_step.py --parts-only     # 只出列印件
+  .venv/bin/python export_step.py --fa 3 --fs 0.3  # 更細（檔案更大）
+  .venv/bin/python export_step.py --fn 48          # 改回固定段數
 """
 
 import argparse
@@ -43,6 +44,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -91,14 +93,18 @@ def tess_args(a):
     """細分設定。$fn=0 時 OpenSCAD 才會改用 $fa/$fs。"""
     if a.fn:
         return ["-D", f"$fn={a.fn}"]
-    return ["-D", "$fn=0", "-D", f"$fa={a.fa}", "-D", f"$fs={a.fs}"]
+    # BOWL_FN=0 讓爐盆也回歸自適應（預覽時它固定 160 段，匯出用不到那麼細）
+    return ["-D", "$fn=0", "-D", f"$fa={a.fa}", "-D", f"$fs={a.fs}",
+            "-D", "BOWL_FN=0"]
 
 
 def render_stl(exe, name, dst, tess, placed):
     """算繪單一零件／元件的 STL。placed=True 取組裝定位後的位置。"""
     is_exe = exe.endswith(".exe")
-    args = (["-D", 'part="placed"', "-D", f'PAIR_A="{name}"'] if placed
-            else ["-D", f'part="{name}"'])
+    # ★一律走 solo/placed 這兩個分派★ 不要用 part="<名稱>"：
+    #   那只對 5 個列印件有效，元件會掉進 dispatch 的預設分支。
+    args = ["-D", 'part="placed"' if placed else 'part="solo"',
+            "-D", f'PAIR_A="{name}"']
     cmd = [exe, "-o", win_path(dst) if is_exe else str(dst),
            *tess, *args,
            win_path(SCAD) if is_exe else str(SCAD)]
@@ -360,6 +366,89 @@ def write_step(O, items, dst: Path, doc_name: str, as_assembly: bool):
     return dst
 
 
+def iso10303_escape(path: Path):
+    """
+    把 STEP 字串字面量裡的非 ASCII 改成 ISO 10303-21 的 \\X2\\<UTF-16BE hex>\\X0\\ 編碼。
+
+    ★為什麼要做★ ISO 10303-21 的字串字面量只允許 ASCII，非 ASCII 必須用控制指令
+    編碼。OCCT 沒有這樣做，寬容的讀取器看得懂、嚴格的會顯示成亂碼——
+    而我看不到 Onshape 畫面，不能賭它屬於哪一種。
+
+    ★而且 OCCT 寫出來的是「雙重編碼」★（2026-08-06 量到的）：
+      「集煙罩」的 UTF-8 應該是 e9 9b 86 e7 85 99 e7 bd a9（9 bytes），
+      檔案裡卻是 c3 a9 c2 9b c2 86 …（18 bytes）——
+      它把 UTF-8 的每個位元組當成一個字元，然後又編了一次 UTF-8。
+      所以要先 latin-1 反編一層，才拿得到真正的字。
+    """
+    text = path.read_bytes().decode("utf-8")
+    out, buf = [], []
+    i, n, in_str = 0, len(text), False
+
+    def flush():
+        if not buf:
+            return
+        lit = "".join(buf)
+        buf.clear()
+        # 先解開 OCCT 的雙重編碼。純 ASCII 的字面量走這一步不會有任何變化。
+        try:
+            lit = lit.encode("latin-1").decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            pass
+        seg, cur = [], []
+
+        def dump():
+            if cur:
+                seg.append("\\X2\\"
+                           + "".join(ch.encode("utf-16-be").hex().upper()
+                                     for ch in cur)
+                           + "\\X0\\")
+                cur.clear()
+
+        for ch in lit:
+            if ord(ch) < 128:
+                dump()
+                seg.append(ch)
+            else:
+                cur.append(ch)
+        dump()
+        out.append("".join(seg))
+
+    while i < n:
+        c = text[i]
+        if not in_str:
+            out.append(c)
+            in_str = (c == "'")
+            i += 1
+        elif c == "'":
+            if i + 1 < n and text[i + 1] == "'":   # STEP 用 '' 表示字串裡的單引號
+                buf.append("''")
+                i += 2
+                continue
+            flush()
+            out.append("'")
+            in_str = False
+            i += 1
+        else:
+            buf.append(c)
+            i += 1
+    flush()
+    path.write_bytes("".join(out).encode("ascii"))
+
+
+def step_names(path: Path):
+    """把 STEP 讀回來，取出所有 PRODUCT 名稱（Onshape 拿來當零件名的就是它）。"""
+    import re
+    raw = path.read_bytes().decode("ascii")
+    names = []
+    for m in re.finditer(r"PRODUCT\('((?:[^']|'')*)'", raw):
+        t = m.group(1).replace("''", "'")
+        # 還原 \X2\<hex>\X0\
+        t = re.sub(r"\\X2\\((?:[0-9A-F]{4})+)\\X0\\",
+                   lambda mm: bytes.fromhex(mm.group(1)).decode("utf-16-be"), t)
+        names.append(t)
+    return sorted(set(names))
+
+
 def verify_step(O, path: Path, want_vol, want_parts):
     """
     ★把寫出去的 STEP 讀回來驗★
@@ -425,19 +514,26 @@ def main():
 
     try:
         for nm in names:
+            t0 = time.time()
+            # ★立即輸出★ 不 flush 的話輸出會被緩衝，看不出卡在哪個零件
+            print(f"  {nm:<12}", end="", flush=True)
             try:
                 # 單件：原點在零件自己的座標系，給 Onshape 當獨立零件用
                 render_stl(exe, nm, tmp / f"s_{nm}.stl", tess, placed=False)
                 # 定位件：套用 place()，給組合件用
                 render_stl(exe, nm, tmp / f"p_{nm}.stl", tess, placed=True)
             except Exception as e:  # noqa: BLE001
+                print("算繪失敗", flush=True)
                 failures.append(f"{nm}: {e}")
                 continue
+            t1 = time.time()
 
             try:
                 solo[nm] = stl_to_solid(O, tmp / f"s_{nm}.stl", nm, report)
                 placed[nm] = stl_to_solid(O, tmp / f"p_{nm}.stl", nm + "@placed", [])
+                print(f"算繪 {t1-t0:5.1f}s　轉檔 {time.time()-t1:5.1f}s", flush=True)
             except Exception as e:  # noqa: BLE001
+                print(f"轉檔失敗（算繪 {t1-t0:.1f}s）", flush=True)
                 failures.append(f"{nm}: {e}")
 
         print("\n寫出 STEP…")
@@ -445,7 +541,10 @@ def main():
         for nm, shape in solo.items():
             f = OUT / f"{nm}_{ZH[nm]}.step"
             write_step(O, [(ZH[nm], shape)], f, ZH[nm], as_assembly=False)
+            iso10303_escape(f)
             bad = verify_step(O, f, vols.get(nm, 0), 1)
+            if not bad and ZH[nm] not in step_names(f):
+                bad = f"零件名稱在檔案裡還原不出來（讀到 {step_names(f)}）"
             print(f"  {f.name:<34}{f.stat().st_size/1024:>7.0f} KB  "
                   f"{'✓ 回讀驗證通過' if not bad else '✗ ' + bad}")
             if bad:
@@ -461,7 +560,13 @@ def main():
                 asm_vol += q.Mass()
             write_step(O, [(ZH[n], s) for n, s in placed.items()], f,
                        "智慧香爐", as_assembly=True)
+            iso10303_escape(f)
             bad = verify_step(O, f, asm_vol, len(placed))
+            if not bad:
+                got = step_names(f)
+                missing = [ZH[n] for n in placed if ZH[n] not in got]
+                if missing:
+                    bad = f"這些零件名稱還原不出來：{missing}"
             print(f"  {f.name:<34}{f.stat().st_size/1024:>7.0f} KB  "
                   f"{'✓ 回讀驗證通過（' + str(len(placed)) + ' 個零件）' if not bad else '✗ ' + bad}")
             if bad:
