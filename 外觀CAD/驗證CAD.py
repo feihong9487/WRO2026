@@ -445,18 +445,23 @@ OPENSCAD_CANDIDATES = [
     "/mnt/c/Program Files (x86)/OpenSCAD/openscad.exe",
     "openscad",
 ]
-PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod"]
+PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod",
+         "socket_plate", "magnet_deck"]
 
 # ── 外購元件（非列印件）──────────────────────────────────────
 # ★把外購件也放進干涉檢查★ 只驗殼對殼，等於默認「裡面一定塞得下」——
 #   而「裝不進去」是實體組裝最常見的失敗，也是最晚才發現的那一種。
 COMPONENTS = ["bowl", "matrix_r4", "pi5", "d4184", "blower",
-              "scd41", "sht31", "max6675", "tc_probe"]
+              "scd41", "sht31", "max6675", "tc_probe",
+              "sleeves", "magnets"]
 
 # 不納入干涉檢查的元件，以及★為什麼★。
 # 這裡不是用來讓紅字消失的——每一項都必須是「拿它去驗會驗到不存在的東西」，
 # 而不是「驗出來不好看」。（CLAUDE.md §5.2 第 6 條）
 COMP_NO_CHECK = {
+    "sleeves": "套筒★刻意★在孔內留 0.4mm 單邊餘隙讓它能擺動——會擺動才回正得了。"
+               "拿干涉檢查去驗它等於要求它卡死，方向相反。"
+               "孔徑與餘隙另由 test_孔徑必須容納套筒並保留滑動間隙 把關。",
     "tc_probe": "目前沒有任何零件提供熱電偶支架，位置只是交接文件的規格目標，"
                 "不是已落實的設計。等支架做出來再納入檢查。",
 }
@@ -693,6 +698,8 @@ PRINT_ORIENT = {
     "hood":       (180, 0, 0),    # ★開口朝下倒印★
     "fan_mount":  (0, 0, 0),      # 背面朝下
     "sensor_pod": (0, 0, 0),      # 背面朝下
+    "socket_plate": (0, 0, 0),    # 平躺
+    "magnet_deck":  (0, 0, 0),    # 凹槽朝上
 }
 
 # 容許的懸空面積。這些數字不是憑空定的：
@@ -1013,7 +1020,8 @@ def check_clearance():
 #   · F5 預覽：OpenCSG 容忍共平面，看起來還是開的
 #   只有 F6／匯出 STL 才現形，而 STL 正是實際拿去列印的東西。
 THROUGHWAYS = [
-    ("hood_opening", "hood",       "投香口（香插不進去就沒得燒）"),
+    ("hood_opening", "hood",       "投香口→套筒的插香路徑（插不進去就沒得燒）"),
+    ("hood_opening", "socket_plate", "插孔板的套筒孔（香要穿得過去）"),
     ("pod_back",     "sensor_pod", "感測器艙背面（封死就裝不進模組、也走不了線）"),
     ("pod_vent",     "sensor_pod", "感測器通風槽（內側被肋條壓住＝外面看得到孔、裡面不通氣）"),
 ]
