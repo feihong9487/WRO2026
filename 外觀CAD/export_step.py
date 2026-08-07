@@ -54,9 +54,11 @@ OUT = HERE / "STEP"
 # 與 incense_burner.scad 的 PARTS_LIST / COMP_LIST 對應。
 # ★這裡列名字，位置由 .scad 的 place() 決定★——不要在本檔重寫變換矩陣，
 #   否則就是第二份真相來源，組裝圖與匯出的 STEP 會悄悄分岔。
-PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod"]
+PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod",
+         "socket_plate", "magnet_deck"]
 COMPONENTS = ["bowl", "matrix_r4", "pi5", "d4184", "blower",
-              "scd41", "sht31", "max6675", "tc_probe"]
+              "scd41", "sht31", "max6675", "tc_probe",
+              "sleeves", "magnets", "mist", "hood_led"]
 
 ZH = {
     "base": "電子艙底座", "chamber": "燃燒艙", "hood": "集煙罩",
@@ -66,6 +68,9 @@ ZH = {
     "blower": "5015鼓風機(外購)", "scd41": "SCD41模組(外購)",
     "sht31": "SHT31模組(外購)", "max6675": "MAX6675板(外購)",
     "tc_probe": "K型熱電偶探頭(外購)",
+    "socket_plate": "插孔板(理香機構)", "magnet_deck": "電磁鐵座(理香機構)",
+    "sleeves": "導正套筒x4(外購)", "magnets": "電磁鐵x4(外購)",
+    "mist": "超音波霧化模組(外購)", "hood_led": "罩內LED側光(外購)",
 }
 
 OPENSCAD_CANDIDATES = [
