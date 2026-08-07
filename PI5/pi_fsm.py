@@ -31,11 +31,10 @@ TOPIC       = "incense/sensor"
 SERIAL_PORT = "/dev/ttyACM0"      # 控制器；用 ls /dev/ttyACM* 確認
 BAUD        = 115200
 
-# 感測資料來源：
-#   "SERIAL" — 合併版。MATRIX Mini R4 一條序列同時送感測值與安全狀態，
-#              Pi 收到後轉發 incense/sensor 上雲（雲端資料模型不變）。
-#   "MQTT"   — 原三板版。ESP32-S3 經 WiFi 發布 incense/sensor，Pi 訂閱。
-SENSOR_SOURCE = "SERIAL"
+# 感測資料來源：MATRIX Mini R4 一條序列同時送感測值與安全狀態，
+# Pi 收到後轉發 incense/sensor 上雲（雲端資料模型不變）。
+# （原三板版的 MQTT 感測來源已於 2026-08-07 隨兩板定案移除，
+#   需要時見 git 歷史的 SENSOR_SOURCE 開關。）
 # ========================
 
 # ---- 門檻與輸出（桌面測試值；燃燒艙實驗後再調） ----
@@ -88,36 +87,17 @@ lock = threading.Lock()
 
 
 def on_conn(client, *args):
-    if SENSOR_SOURCE == "MQTT":
-        client.subscribe(TOPIC)
-        print(f"MQTT 已連線並訂閱 {TOPIC}")
-    else:
-        print("MQTT 已連線（僅發布，感測資料走序列）")
-
-
-def on_msg(client, userdata, m):
-    global latest, latest_t
-    try:
-        d = json.loads(m.payload.decode())
-    except Exception:
-        return
-    with lock:
-        latest = d
-        latest_t = time.time()
+    print("MQTT 已連線（僅發布，感測資料走序列）")
 
 
 def serial_reader(ser, client):
     """
     背景執行緒：持續讀控制器每秒回報的狀態 JSON。
 
-    SENSOR_SOURCE == "SERIAL"（合併版）：
-        MATRIX Mini R4 送來的一行 JSON 同時含感測值與安全狀態，
-        欄位名稱與原本的 sensor / R4 狀態一致，因此同一份 dict
-        可直接供 latest（感測）與 r4（安全）共用。
-        另需轉發 incense/sensor 上雲，否則雲端 sensor measurement 會斷。
-
-    SENSOR_SOURCE == "MQTT"（原三板版）：
-        序列只送 R4 安全狀態，感測值另由 on_msg() 從 MQTT 取得。
+    MATRIX Mini R4 送來的一行 JSON 同時含感測值與安全狀態，
+    欄位名稱與原本的 sensor / R4 狀態一致，因此同一份 dict
+    可直接供 latest（感測）與 r4（安全）共用。
+    另需轉發 incense/sensor 上雲，否則雲端 sensor measurement 會斷。
     """
     global r4, latest, latest_t
     while True:
@@ -128,15 +108,13 @@ def serial_reader(ser, client):
             d = json.loads(line)
             with lock:
                 r4 = d
-                if SENSOR_SOURCE == "SERIAL":
-                    latest = d
-                    latest_t = time.time()
-            if SENSOR_SOURCE == "SERIAL":
-                # 只挑感測欄位轉發，維持與原 ESP32-S3 相同的 payload 結構
-                sensor = {k: d[k] for k in
-                          ("ts", "co2", "slope", "t_scd", "rh_scd",
-                           "t_sht", "rh_sht", "conf", "alarm") if k in d}
-                client.publish(TOPIC, json.dumps(sensor, ensure_ascii=False))
+                latest = d
+                latest_t = time.time()
+            # 只挑感測欄位轉發，維持雲端沿用的 payload 結構
+            sensor = {k: d[k] for k in
+                      ("ts", "co2", "slope", "t_scd", "rh_scd",
+                       "t_sht", "rh_sht", "conf", "alarm") if k in d}
+            client.publish(TOPIC, json.dumps(sensor, ensure_ascii=False))
         except Exception:
             time.sleep(0.5)
 
@@ -148,7 +126,6 @@ def main():
     except AttributeError:
         client = mqtt.Client()
     client.on_connect = on_conn
-    client.on_message = on_msg
     client.connect(MQTT_HOST, 1883, 60)
     client.loop_start()
 
