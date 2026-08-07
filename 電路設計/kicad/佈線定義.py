@@ -91,8 +91,34 @@ COMPONENTS = [
          left=[("1", "紅線 +", PAS, "FAN_P"), ("2", "黑線 -", PAS, "FAN_N")],
          right=[]),
 
+    # ── 理香機構與霧化（2026-08-07）────────────────────────
+    # ★用 I²C 驅動板而不是 GPIO★ R4 的可用腳（D1/D4 共 4 腳）已全滿，
+    #   D2/D3 被 MiniR4.begin() 的 PS2 佔走。而 0.5A 電磁鐵本來就要 MOSFET，
+    #   驅動板無論如何都要買——選 I²C 版本同時解掉腳位，增量成本趨近於零。
+    #   結構上還更好：互鎖變成「寫出去的位元組至多一個 bit 為 1」，
+    #   單一地點可驗證；四支獨立 GPIO 反而可能不小心同時拉高兩支。
+    dict(ref="U6", name="PCF8574-MOSFET", value="I2C 8路 MOSFET 驅動板",
+         at=(325.12, 100.33), width=45.72,
+         left=[("1", "VCC 5V", PWR, "+5V"), ("2", "GND", PWR, "GND"),
+               ("3", "SDA", BID, "I2C1_SDA"), ("4", "SCL", BID, "I2C1_SCL"),
+               ("5", "VIN+ 12V", PWR, "+12V")],
+         right=[("6", "OUT1 電磁鐵1", OUT, "MAG1"), ("7", "OUT2 電磁鐵2", OUT, "MAG2"),
+                ("8", "OUT3 電磁鐵3", OUT, "MAG3"), ("9", "OUT4 電磁鐵4", OUT, "MAG4"),
+                ("10", "OUT5 霧化", OUT, "MIST"), ("11", "OUT6 罩內LED", OUT, "HOODLED")]),
+
+    dict(ref="K1", name="Solenoid-Array", value="電磁鐵 ×4（理香，脈衝驅動）",
+         at=(400.05, 95.25), width=30.48,
+         left=[("1", "MAG1", IN, "MAG1"), ("2", "MAG2", IN, "MAG2"),
+               ("3", "MAG3", IN, "MAG3"), ("4", "MAG4", IN, "MAG4")],
+         right=[]),
+
+    dict(ref="M2", name="Mist-Ultrasonic", value="超音波霧化模組 12V（冷霧，無明火）",
+         at=(400.05, 121.92), width=30.48,
+         left=[("1", "MIST", IN, "MIST"), ("2", "GND", PWR, "GND")],
+         right=[]),
+
     # ── 電源（左下）：一顆 12V 同時餵控制器與風扇，共地自動成立 ──
-    dict(ref="J2", name="PSU-12V", value="12V 2A 變壓器",
+    dict(ref="J2", name="PSU-12V", value="12V 3A 變壓器",
          at=(77.47, 138.43), width=30.48,
          left=[],
          right=[("1", "+12V", POUT, "+12V"), ("2", "0V", PWR, "GND")]),

@@ -453,7 +453,7 @@ PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod",
 #   而「裝不進去」是實體組裝最常見的失敗，也是最晚才發現的那一種。
 COMPONENTS = ["bowl", "matrix_r4", "pi5", "d4184", "blower",
               "scd41", "sht31", "max6675", "tc_probe",
-              "sleeves", "magnets"]
+              "sleeves", "magnets", "mist", "hood_led"]
 
 # 不納入干涉檢查的元件，以及★為什麼★。
 # 這裡不是用來讓紅字消失的——每一項都必須是「拿它去驗會驗到不存在的東西」，

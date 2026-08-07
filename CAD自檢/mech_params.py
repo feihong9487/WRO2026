@@ -220,7 +220,10 @@ PSU_MARGIN       = 0.8           # 電源使用率上限（留 20% 餘裕）
 # 兩者混為一談的後果是「用未來的負載去判現在的電源夠不夠」——
 # 結論會是錯的，而且方向還相反：現況其實很寬裕。
 FAN_COUNT_NOW    = 1             # 與 佈線定義.py 一致（跨層規則會比對）
-MAGNET_COUNT_NOW = 0             # 磁力矩陣屬 P3，尚未進電路
+MAGNET_COUNT_NOW = 4             # 2×2 理香陣列（2026-08-07 進電路，見 佈線定義.py）
+MIST_COUNT_NOW   = 1             # 超音波霧化模組（無明火展示的煙源）
+MIST_CURRENT_A   = 0.35          # ★估值，未實測★
+MIST_MEASURED    = False
 
 # 無刷風扇的啟動突波倍率。★這才是這條匯流排真正的暫態★——
 # 直流電磁鐵是電阻電感負載，電流是往 V/R 指數上升、不會過衝，沒有湧入問題；
@@ -234,7 +237,7 @@ FAN_STARTUP_MEASURED = False
 #   無互鎖：峰值 2.50A ＞ 2.40A ✗（那就得換 4A）
 # 所以互鎖一旦沒做，電源就不夠——這個相依關係必須被追蹤，不能只寫在註解裡。
 MAGNET_SIMULTANEOUS_MAX = 1
-MAGNET_INTERLOCK_IMPLEMENTED = False   # ← P3 韌體做出互鎖後才可改 True
+MAGNET_INTERLOCK_IMPLEMENTED = True    # 2026-08-07 韌體 ioWrite() 已實作（規則會驗韌體真的有）
 
 # ── 過濾鏈壓損（決定風扇選型是否足夠）──
 # 5015 鼓風扇靜壓有限，三段過濾串聯的壓損不可忽視
@@ -285,6 +288,59 @@ SCREW_BOARD_EXEMPT = {
 
 MILESTONE = "P0/P1"   # 目前：核心感測與致動鏈路
 
+# =============================================================
+# 建置組態（2026-08-07）
+# =============================================================
+# 同一套設計有兩種建置，差別不只是尺度，★還有「有沒有明火」★：
+#
+#   展示機：大會禁明火 → 香不點燃 → ★根本沒有熱區★
+#           理香機構照樣演示得出來（磁力作用在套筒，與燃燒無關）
+#   廟宇爐：真的燒香 → 近爐區高溫 → 材料耐熱是硬要求
+#
+# 把它做成組態，是因為「近爐零件要耐 120°C」這條規則在展示機上
+# ★不成立也不該成立★——那裡沒有 120°C。用同一條絕對規則去驗兩種
+# 本質不同的建置，驗出來的結論會是錯的。
+#
+# ★但廟宇爐的耐熱衝突沒有因此消失★：它會進 pending_build_conflicts()，
+#   每次跑測試都印出來。不是把問題藏起來，是把它歸到它真正屬於的組態。
+BUILD_CONFIGS = {
+    "展示機": dict(
+        open_flame=False,
+        # 無明火 → 近爐區溫度就是環境溫度（感測器艙同級）
+        near_censer_temp_c=SENSOR_ZONE_TEMP_C,
+        note="WRO 會場禁明火；香不點燃，理香機構與 CO2 分級照常展示",
+    ),
+    "廟宇爐": dict(
+        open_flame=True,
+        near_censer_temp_c=NEAR_CENSER_TEMP_C,
+        note="實地佈署，真的燒香",
+    ),
+}
+CURRENT_BUILD = "展示機"
+
+
+def build_cfg(name: str = None) -> dict:
+    return BUILD_CONFIGS[name or CURRENT_BUILD]
+
+
+def pending_build_conflicts() -> List[str]:
+    """
+    其他組態（不是現在在建的那個）已知但尚未解決的衝突。
+    ★列出來是為了不讓它消失★——切到那個組態之前必須處理掉。
+    """
+    out = []
+    for name, cfg in BUILD_CONFIGS.items():
+        if name == CURRENT_BUILD:
+            continue
+        t = cfg["near_censer_temp_c"]
+        for part in PARTS:
+            if part.near_censer and part.material.max_service_temp_c < t:
+                out.append(
+                    f"[{name}] {part.name} 用 {part.material.name}"
+                    f"（耐 {part.material.max_service_temp_c}°C）低於該組態的近爐溫度 {t}°C"
+                    f"——FDM 材料無一撐得住，需實測下修或改設計")
+    return out
+
 SCOPE_CORE = {
     # R4（MATRIX Mini R4）＋ Pi 5 ＋ SHT31 ＋ SCD41 ＋ 5015 風扇 ＋ MAX6675 熱電偶 ＋ 雲端監測
     "test_熱電偶聯鎖門檻必須高於該位置的預估工作溫度",
@@ -295,6 +351,8 @@ SCOPE_CORE = {
     "test_S2高峰duty需明顯高於S1常態",
     "test_安全狀態必須停止致動",
     "test_CO2硬警報必須維持絕對門檻",
+    "test_列出其他建置組態的已知衝突",
+    "test_無明火組態不可同時宣稱有燃燒相關的熱設計",
     "test_外觀CAD的近熱區必須有空氣間隙",
     "test_煙道截面在機構與外觀CAD之間需相容",
     "test_桌上型展示機與廟宇實體爐的尺度需標明差異",
@@ -366,10 +424,12 @@ def total_current_draw_a(config: str = "full") -> float:
 
     預設維持 "full"，這樣既有的 P3 規則行為完全不變。
     """
-    mag = (min(MAGNET_COUNT, MAGNET_SIMULTANEOUS_MAX) if config == "full"
-           else MAGNET_COUNT_NOW)
+    mag = min(MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW,
+              MAGNET_SIMULTANEOUS_MAX)      # 互鎖：兩種組態都是一次只吸一顆
     fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
-    return mag * MAGNET_CURRENT_A + fan * FAN_CURRENT_A + CTRL_CURRENT_A
+    mist = MIST_COUNT_NOW if config == "now" else 0   # 霧化只在展示機上
+    return (mag * MAGNET_CURRENT_A + fan * FAN_CURRENT_A
+            + mist * MIST_CURRENT_A + CTRL_CURRENT_A)
 
 
 def peak_current_draw_a(config: str = "full") -> float:
@@ -379,12 +439,13 @@ def peak_current_draw_a(config: str = "full") -> float:
     穩態過關不代表開機那一瞬間過關——風扇啟動時電流是穩態的數倍，
     電源若在此時觸發過流保護，整台機器會在每次開風扇時重啟。
     """
-    mag = (min(MAGNET_COUNT, MAGNET_SIMULTANEOUS_MAX) if config == "full"
-           else MAGNET_COUNT_NOW)
+    mag = min(MAGNET_COUNT if config == "full" else MAGNET_COUNT_NOW,
+              MAGNET_SIMULTANEOUS_MAX)      # 互鎖：兩種組態都是一次只吸一顆
     fan = FAN_COUNT if config == "full" else FAN_COUNT_NOW
+    mist = MIST_COUNT_NOW if config == "now" else 0
     return (mag * MAGNET_CURRENT_A
             + fan * FAN_CURRENT_A * FAN_STARTUP_FACTOR
-            + CTRL_CURRENT_A)
+            + mist * MIST_CURRENT_A + CTRL_CURRENT_A)
 
 
 def pending_design_constraints() -> List[str]:
@@ -422,4 +483,5 @@ def unmeasured_items() -> List[str]:
     if not FAN_STARTUP_MEASURED:      items.append("風扇啟動突波倍率")
     if not SENSOR_ZONE_TEMP_MEASURED: items.append("感測器艙實際溫度")
     if not STOCK_SIZES_CONFIRMED:     items.append("市售鋁管庫存規格（需向供應商查證）")
+    if not MIST_MEASURED:             items.append("超音波霧化模組實際電流")
     return items

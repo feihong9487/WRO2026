@@ -90,6 +90,7 @@ use <components/blower_5015.scad>
 use <components/sensors.scad>
 use <components/max6675.scad>
 use <components/tidy_parts.scad>
+use <components/mist_led.scad>
 
 // ═══════════════════════════════════════════════════════════════
 // 組裝定位
@@ -107,7 +108,7 @@ PART_COLOR = ["#5b6670", "#8b6f47", "#a8825c", "#3f4a52", "#2f6f5a",
 // 沒有它們的時候，干涉檢查只檢查殼跟殼，等於默認「裡面一定塞得下」。
 COMP_LIST = ["bowl", "matrix_r4", "pi5", "d4184",
              "blower", "scd41", "sht31", "max6675", "tc_probe",
-             "sleeves", "magnets"];
+             "sleeves", "magnets", "mist", "hood_led"];
 
 // 風扇座定位計算（外掛在燃燒艙後方）
 FAN_BODY_T   = FAN_T + WALL * 2;                  // 本體厚
@@ -136,6 +137,8 @@ module part_by_name(name) {
     else if (name == "tc_probe")   tc_probe();
     else if (name == "sleeves")    guide_sleeves();
     else if (name == "magnets")    electromagnets();
+    else if (name == "mist")       mist_module();
+    else if (name == "hood_led")   hood_led();
 }
 
 module place(name, explode = 0) {
@@ -186,9 +189,27 @@ module place(name, explode = 0) {
     // ── 外購元件 ────────────────────────────────────────────
     // ★沿用同一組 place()★ 這樣元件的定位與組合件、干涉檢查永遠一致；
     //   另外寫一份就會有「組裝圖對、檢查驗錯位置」的經典錯誤。
+    else if (name == "mist")
+        // 泡在爐盆底部的水裡
+        translate([BASE_W / 2, BASE_D / 2,
+                   BASE_H + CHMB_H - BOWL_H + BOWL_WALL + explode]) children();
+    else if (name == "hood_led")
+        // 貼在集煙罩內側前壁，側向打光讓霧看得清楚
+        translate([BASE_W / 2,
+                   (BASE_D - CHMB_D) / 2 + WALL + HOODLED_T / 2 + 14,
+                   BASE_H + CHMB_H + 16 + explode]) children();
     else if (name == "bowl")
         translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H - BOWL_H + explode])
             children();
+    else if (name == "mist")
+        // 泡在爐盆底部的水裡（壓電片要沒入水中，建議水位 MIST_WATER_MM）
+        translate([BASE_W / 2, BASE_D / 2,
+                   BASE_H + CHMB_H - BOWL_H + BOWL_WALL + explode]) children();
+    else if (name == "hood_led")
+        // 貼在集煙罩內側前壁，側向打光——霧被側光打亮時可見度差好幾倍
+        translate([BASE_W / 2,
+                   (BASE_D - CHMB_D) / 2 + WALL + HOODLED_T / 2 + 14,
+                   BASE_H + CHMB_H + 16 + explode]) children();
     else if (name == "matrix_r4")
         translate([14, 14, FLOOR + STANDOFF_H - explode]) children();
     else if (name == "pi5")

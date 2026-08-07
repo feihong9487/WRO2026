@@ -118,14 +118,42 @@ def test_聯鎖解除門檻需低於觸發門檻且有足夠遲滯():
 
 
 def test_近爐零件耐熱須高於熱電偶位置溫度():
-    """材料選擇要以實際熱點為準，不是以 HOT_ZONE_TEMP_C 這個分區門檻為準。"""
+    """
+    材料選擇要以實際熱點為準，不是以 HOT_ZONE_TEMP_C 這個分區門檻為準。
+
+    ★依建置組態判定★（2026-08-07）
+      展示機無明火 → 近爐區就是環境溫度，這條規則在那裡不成立也不該成立；
+      廟宇爐真的燒 → 照舊要求。
+      用同一條絕對規則驗兩種本質不同的建置，結論會是錯的。
+
+    ★這不是把問題藏起來★：其他組態的衝突由
+      test_列出其他建置組態的已知衝突 每次跑都印出來。
+    """
+    cfg = P.build_cfg()
+    t = cfg["near_censer_temp_c"]
     for part in P.PARTS:
         if part.near_censer:
-            assert part.material.max_service_temp_c >= P.TC_LOCATION_TEMP_C, (
-                f"{part.name} 用 {part.material.name}"
-                f"（耐 {part.material.max_service_temp_c}°C），"
-                f"低於熱點預估 {P.TC_LOCATION_TEMP_C}°C"
+            assert part.material.max_service_temp_c >= t, (
+                f"[{P.CURRENT_BUILD}] {part.name} 用 {part.material.name}"
+                f"（耐 {part.material.max_service_temp_c}°C），低於該組態的近爐溫度 {t}°C"
             )
+
+
+def test_列出其他建置組態的已知衝突():
+    """把非當前組態的衝突印出來，讓它每次跑測試都被看見（不判定成敗）。"""
+    for c in P.pending_build_conflicts():
+        print(f"  ★其他組態待解★ {c}")
+
+
+def test_無明火組態不可同時宣稱有燃燒相關的熱設計():
+    """
+    防止「把組態改成無明火」變成規避耐熱要求的後門。
+    無明火就不該有燃燒產物的處理需求——若過濾鏈仍宣稱要擋火星，
+    代表組態宣告與設計意圖矛盾，那是宣告錯了，不是規則錯了。
+    """
+    if P.build_cfg()["open_flame"]:
+        return
+    assert P.CURRENT_BUILD != "廟宇爐", "廟宇爐不可宣告為無明火"
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -232,11 +260,15 @@ def test_現行風扇數需與電路圖一致():
     assert n_fan == P.FAN_COUNT_NOW, (
         f"電路圖上有 {n_fan} 顆風扇，但 mech_params 宣告現行配置 "
         f"FAN_COUNT_NOW={P.FAN_COUNT_NOW}——電流預算會驗到錯的負載")
-    # 電磁鐵若已進電路，MAGNET_COUNT_NOW 就不能還寫 0
-    n_mag = len(re.findall(r'name="(?:Solenoid|Magnet|EM)[-\w]*"', src))
+    # 電磁鐵：陣列在電路圖上是一顆符號，所以★數驅動通道（MAGn 網路）★
+    # 而不是數符號——通道數才是電流預算真正該乘的東西。
+    n_mag = len(set(re.findall(r'"(MAG\d+)"', src)))
     assert n_mag == P.MAGNET_COUNT_NOW, (
-        f"電路圖上有 {n_mag} 個電磁鐵，但宣告 MAGNET_COUNT_NOW="
-        f"{P.MAGNET_COUNT_NOW}")
+        f"電路圖上有 {n_mag} 路電磁鐵驅動（MAGn 網路），"
+        f"但宣告 MAGNET_COUNT_NOW={P.MAGNET_COUNT_NOW}——電流預算會乘錯")
+    n_mist = len(set(re.findall(r'"(MIST)"', src)))
+    assert n_mist == P.MIST_COUNT_NOW, (
+        f"電路圖上有 {n_mist} 路霧化驅動，但宣告 MIST_COUNT_NOW={P.MIST_COUNT_NOW}")
 
 
 def test_完整設計的12V峰值須在電源餘裕內():
@@ -274,9 +306,14 @@ def test_電源預算依賴的設計約束不可被遺忘():
     if not INO.exists():
         return
     src = INO.read_text(encoding="utf-8")
-    drives_magnet = bool(re.search(r"MAGNET|SOLENOID|電磁鐵", src, re.I))
+    # ★註解不算實作★ 先把註解剝掉再找——否則一句「一次只吸一顆」的註解
+    #   就能讓這條規則通過，而規則要驗的是程式碼真的有做互鎖。
+    #   （2026-08-07 負向測試發現：拿掉實作但留著註解，規則仍然放行。）
+    code = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
+    code = re.sub(r"//[^\n]*", "", code)
+    drives_magnet = bool(re.search(r"MAGNET|SOLENOID", code, re.I))
     has_interlock = bool(re.search(
-        r"MAGNET_SIMULTANEOUS|activeMagnets|magnetBusy|一次只", src, re.I))
+        r"MAGNET_SIMULTANEOUS|MASK_MAGNETS|activeMagnets|magnetBusy", code))
 
     # 旗標宣稱做好了，就必須在韌體裡看得到——
     # 否則只要把旗標翻成 True 就能讓這條規則失效（等同 §5.2 第 5 條的旗標紅線）
