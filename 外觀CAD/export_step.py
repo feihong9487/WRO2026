@@ -331,25 +331,22 @@ def write_step(O, items, dst: Path, doc_name: str, as_assembly: bool):
     tool = O["XCAFDoc_DocumentTool"].ShapeTool_s(doc.Main())
 
     if as_assembly:
-        comp = TopoDS_Compound()
-        b = O["BRep_Builder"]()
-        b.MakeCompound(comp)
-        for _, shape in items:
-            b.Add(comp, shape)
-        root = tool.AddShape(comp, True)          # True = 建成組合件
+        # ★不要靠「元件順序＝加入順序」配名字★
+        #   先前用 GetComponents_s 取回子標籤再依索引命名，但那個順序不保證
+        #   與加入順序一致——結果有一個子件掛著 OCCT 的預設名 "SOLID"
+        #   而真正的名稱掉了（2026-08-07 回讀驗證抓到）。
+        #   改成標準 XCAF 作法：每個形狀各自建一個具名零件標籤，
+        #   再明確掛成母件的元件。名字與形狀的對應是建構出來的，不是猜的。
+        from OCP.TopLoc import TopLoc_Location
+        root = tool.NewShape()
         O["TDataStd_Name"].Set_s(root, O["TCollection_ExtendedString"](doc_name))
-        # 幫每個子件命名：子標籤的順序與加入 compound 的順序一致。
-        # 名字要同時寫在「實例」與「被參照的零件」上，Onshape 兩邊都會讀。
-        from OCP.TDF import TDF_LabelSequence, TDF_Label
-        seq = TDF_LabelSequence()
-        tool.GetComponents_s(root, seq)
-        for i in range(1, min(seq.Length(), len(items)) + 1):
-            lab = seq.Value(i)
-            nm = O["TCollection_ExtendedString"](items[i - 1][0])
-            O["TDataStd_Name"].Set_s(lab, nm)
-            ref = TDF_Label()
-            if tool.GetReferredShape_s(lab, ref):
-                O["TDataStd_Name"].Set_s(ref, nm)
+        for name, shape in items:
+            nm = O["TCollection_ExtendedString"](name)
+            part = tool.AddShape(shape, False)          # 零件本體
+            O["TDataStd_Name"].Set_s(part, nm)
+            comp = tool.AddComponent(root, part, TopLoc_Location())
+            O["TDataStd_Name"].Set_s(comp, nm)          # 實例也給同一個名字
+        tool.UpdateAssemblies()
     else:
         for name, shape in items:
             lab = tool.AddShape(shape, False)
@@ -445,13 +442,27 @@ def step_names(path: Path):
     import re
     raw = path.read_bytes().decode("ascii")
     names = []
-    for m in re.finditer(r"PRODUCT\('((?:[^']|'')*)'", raw):
+    # ★要容許換行★ STEP 會把長實體折行，PRODUCT( 與名稱之間可能隔著
+    #   換行與空白。第一版沒容許，於是折到下一行的名稱一律讀不到——
+    #   檔案其實是好的，錯的是讀取器（2026-08-07 回讀驗證誤報霧化模組缺名）。
+    for m in re.finditer(r"PRODUCT\(\s*'((?:[^']|'')*)'", raw):
         t = m.group(1).replace("''", "'")
         # 還原 \X2\<hex>\X0\
         t = re.sub(r"\\X2\\((?:[0-9A-F]{4})+)\\X0\\",
                    lambda mm: bytes.fromhex(mm.group(1)).decode("utf-16-be"), t)
         names.append(t)
     return sorted(set(names))
+
+
+def n_solids(O, shape) -> int:
+    """數實體個數。★不能假設「一個具名零件＝一個實體」★——
+    導正套筒與電磁鐵各是 4 件一組，本來就該是 4 個實體。"""
+    e = O["TopExp_Explorer"](shape, O["TopAbs_ShapeEnum"].TopAbs_SOLID)
+    n = 0
+    while e.More():
+        n += 1
+        e.Next()
+    return n
 
 
 def verify_step(O, path: Path, want_vol, want_parts):
@@ -547,7 +558,8 @@ def main():
             f = OUT / f"{nm}_{ZH[nm]}.step"
             write_step(O, [(ZH[nm], shape)], f, ZH[nm], as_assembly=False)
             iso10303_escape(f)
-            bad = verify_step(O, f, vols.get(nm, 0), 1)
+            # 期望實體數由來源形狀本身數出來，不是寫死 1
+            bad = verify_step(O, f, vols.get(nm, 0), n_solids(O, shape))
             if not bad and ZH[nm] not in step_names(f):
                 bad = f"零件名稱在檔案裡還原不出來（讀到 {step_names(f)}）"
             print(f"  {f.name:<34}{f.stat().st_size/1024:>7.0f} KB  "
@@ -566,14 +578,15 @@ def main():
             write_step(O, [(ZH[n], s) for n, s in placed.items()], f,
                        "智慧香爐", as_assembly=True)
             iso10303_escape(f)
-            bad = verify_step(O, f, asm_vol, len(placed))
+            bad = verify_step(O, f, asm_vol,
+                              sum(n_solids(O, sh) for sh in placed.values()))
             if not bad:
                 got = step_names(f)
                 missing = [ZH[n] for n in placed if ZH[n] not in got]
                 if missing:
                     bad = f"這些零件名稱還原不出來：{missing}"
             print(f"  {f.name:<34}{f.stat().st_size/1024:>7.0f} KB  "
-                  f"{'✓ 回讀驗證通過（' + str(len(placed)) + ' 個零件）' if not bad else '✗ ' + bad}")
+                  f"{'✓ 回讀驗證通過（' + str(len(placed)) + ' 個具名零件）' if not bad else '✗ ' + bad}")
             if bad:
                 failures.append(f"組合件: 回讀驗證 — {bad}")
     finally:
