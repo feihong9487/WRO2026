@@ -152,7 +152,10 @@ def load_params(src):
             continue
         try:
             # max/min 是 OpenSCAD 內建，參數式常用（例：由最厚的模組推導肋深）
-            env[name] = eval(expr, {"__builtins__": {}, "max": max, "min": min},
+            # true/false 也是（2026-08-07 起 TIDY_CENTER_HOLE 用到）——
+            #   少了它們，布林參數會走到 except 被靜默略過。
+            env[name] = eval(expr, {"__builtins__": {}, "max": max, "min": min,
+                                    "true": True, "false": False},
                              dict(env))
         except Exception:
             pass          # 字串或無法求值者略過（如 part = "assembly"）

@@ -25,10 +25,13 @@ module guide_sleeve() {
     }
 }
 
-// 四支一組（對應 2×2 陣列）
+// 五支一組（2×2 主動格＋中央被動導引孔——梅花五孔，見 ../params.scad）。
+// 中央那支下方沒有電磁鐵，鐵墊圈只是沿用同一種套筒規格（同一料號、
+// 不增加 BOM 品項）；它落座在磁座實心區上，比主動格低一個氣隙量。
 module guide_sleeves() {
     o = TIDY_HOLE_PITCH / 2;
     for (x = [-o, o], y = [-o, o]) translate([x, y, 0]) guide_sleeve();
+    if (TIDY_CENTER_HOLE) guide_sleeve();
 }
 
 // 原點：電磁鐵頂面（吸合面）圓心，往下長

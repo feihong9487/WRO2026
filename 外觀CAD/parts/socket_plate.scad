@@ -9,11 +9,15 @@
 include <../common.scad>
 
 
-// 原點：板底面圓心。孔位在 (±pitch/2, ±pitch/2)。
+// 原點：板底面圓心。孔位＝(±pitch/2, ±pitch/2) 四個主動格
+// ＋中央被動導引孔（梅花五孔，見 ../params.scad 的 TIDY_CENTER_HOLE 段）。
+function tidy_xy() = let (o = TIDY_HOLE_PITCH / 2)
+    concat([for (x = [-o, o], y = [-o, o]) [x, y]],
+           TIDY_CENTER_HOLE ? [[0, 0]] : []);
+
 module tidy_holes(d, h, z = -0.1) {
-    o = TIDY_HOLE_PITCH / 2;
-    for (x = [-o, o], y = [-o, o])
-        translate([x, y, z]) cylinder(h = h, d = d);
+    for (p = tidy_xy())
+        translate([p[0], p[1], z]) cylinder(h = h, d = d);
 }
 
 module socket_plate() {
@@ -23,6 +27,14 @@ module socket_plate() {
         cylinder(h = TIDY_PLATE_T, d = TIDY_PLATE_DIA);
         // 套筒孔——★要留餘隙讓套筒能擺動，才回正得了★
         tidy_holes(TIDY_HOLE_DIA, TIDY_PLATE_T + 0.2);
+        // 孔口導引喇叭：頂面淺錐倒角，錐尖朝下接直孔。
+        // 錐體往上多伸 0.1 消共面 z-fighting，d2 依斜率補正。
+        for (p = tidy_xy())
+            translate([p[0], p[1], TIDY_PLATE_T - TIDY_FUNNEL_DEPTH])
+                cylinder(h = TIDY_FUNNEL_DEPTH + 0.1,
+                         d1 = TIDY_HOLE_DIA,
+                         d2 = TIDY_HOLE_DIA + 2 * TIDY_FUNNEL_R
+                              * (TIDY_FUNNEL_DEPTH + 0.1) / TIDY_FUNNEL_DEPTH);
 
         // M4 通孔（鎖到磁座的螺柱上）
         for (a = [0, 90, 180, 270])   // 與磁座螺柱同角度（見 magnet_deck.scad）

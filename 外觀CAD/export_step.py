@@ -25,17 +25,19 @@ OpenSCAD 匯不出 STEP——它是網格／CSG，不是 B-rep。所以這裡走
 
 相依：OCCT 的 Python 綁定（cadquery-ocp）。
   系統 Python 受 PEP 668 保護，不可用 --break-system-packages（CLAUDE.md §2）。
-  請裝在隔離的 venv 裡：
-      python3 -m venv --without-pip .venv
-      curl -sS https://bootstrap.pypa.io/get-pip.py | .venv/bin/python
-      .venv/bin/python -m pip install cadquery-ocp
-  然後用 .venv/bin/python 執行本檔。
+  請裝在隔離的 venv 裡，★而且 venv 要放在 repo 之外★——
+  放在專案目錄裡的話，run_tests.py 的測試探索會把 numpy 自帶的
+  幾百個 test_*.py 全撿進來，自檢直接爆掉（2026-08-07 踩過）：
+      python3 -m venv --without-pip ~/.venvs/ocp
+      curl -sS https://bootstrap.pypa.io/get-pip.py | ~/.venvs/ocp/bin/python
+      ~/.venvs/ocp/bin/python -m pip install cadquery-ocp
+  然後用 ~/.venvs/ocp/bin/python 執行本檔。
 
 用法（要用裝了 cadquery-ocp 的那個 venv 的 python 跑）：
-  .venv/bin/python export_step.py                  # 零件 ＋ 元件 ＋ 組合件
-  .venv/bin/python export_step.py --parts-only     # 只出列印件
-  .venv/bin/python export_step.py --fa 3 --fs 0.3  # 更細（檔案更大）
-  .venv/bin/python export_step.py --fn 48          # 改回固定段數
+  ~/.venvs/ocp/bin/python export_step.py                  # 零件 ＋ 元件 ＋ 組合件
+  ~/.venvs/ocp/bin/python export_step.py --parts-only     # 只出列印件
+  ~/.venvs/ocp/bin/python export_step.py --fa 3 --fs 0.3  # 更細（檔案更大）
+  ~/.venvs/ocp/bin/python export_step.py --fn 48          # 改回固定段數
 """
 
 import argparse
@@ -69,7 +71,7 @@ ZH = {
     "sht31": "SHT31模組(外購)", "max6675": "MAX6675板(外購)",
     "tc_probe": "K型熱電偶探頭(外購)",
     "socket_plate": "插孔板(理香機構)", "magnet_deck": "電磁鐵座(理香機構)",
-    "sleeves": "導正套筒x4(外購)", "magnets": "電磁鐵x4(外購)",
+    "sleeves": "導正套筒x5(外購)", "magnets": "電磁鐵x4(外購)",
     "mist": "超音波霧化模組(外購)", "hood_led": "罩內LED側光(外購)",
 }
 
