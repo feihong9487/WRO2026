@@ -65,6 +65,14 @@ python3 PI5/驗證資料流.py
 
 - **MATRIX Mini R4 的 D2、D3 埠不能用**。`MiniR4.begin()` 內執行
   `PS2.config_gamepad(11, 4, 12, 5)`，把腳 11/4/12/5 佔為手把介面。只用 D1、D4。
+- **MatrixMiniR4 函式庫（≤1.2.5）與 Adafruit BusIO 連結衝突**。該庫把
+  Adafruit_I2CDevice 整個類別抄進 `src/Modules/MiniR4_I2CDevice.cpp`，與
+  Adafruit_SHT31 相依的正牌 BusIO 十個符號全數重複定義（multiple definition）。
+  已在使用者函式庫（OneDrive 的 `文件\Arduino\libraries\MatrixMiniR4`）
+  以 `#if !__has_include(<Adafruit_I2CDevice.h>)` 包住整檔讓位——
+  ★函式庫一更新補丁就消失★，連結錯誤重現時照 2026-08-08 的做法重加。
+- **這台電腦的 Arduino 草稿本在 OneDrive**（`C:\Users\feihong\OneDrive\文件\Arduino`），
+  不是 `Documents\Arduino`——查函式庫別找錯地方。
 - **UNO R4 的 `snprintf` 不保證支援 `%f`**。組 JSON 用 `Serial.print(x, 2)`。
 - **馬達埠是 5V**（`Port M1 DC 5V Motor`），推不動 12V 風扇，D4184 必須保留。
 - **Grafana Public Dashboard 不代入模板變數**，且**文字型欄位在 stat 卡片顯示不出來**。
@@ -128,8 +136,10 @@ python3 PI5/驗證資料流.py
 `mech_params.py` 中所有 `*_MEASURED = False` 的項目都是估計值。
 基於它們的任何數字，在報告中**只能稱「設計目標」**，不能寫成實測結果。
 
-模擬爐 `aroma01` / `aroma02` 是 `sim_burner.py` 產生的**模擬資料**，
-任何展示、報告、簡報都必須明確標示為模擬機。
+`aroma02` 是 `sim_burner.py` 產生的**模擬資料**，任何展示、報告、簡報都必須
+明確標示為模擬機。`aroma01` 自 **2026-08-08 01:15（台北）** 起是真實 Pi5＋R4
+的實測資料——但 InfluxDB 裡該時間點**之前**的 aroma01 歷史（7/30 起）是當時
+模擬器發的，引用歷史區間時必須區分（切換紀錄見《部署紀錄.md》附錄）。
 
 現況待實測清單：`python3 -c "import sys; sys.path.insert(0,'CAD自檢'); import mech_params as P; print(P.unmeasured_items())"`
 
