@@ -4,18 +4,19 @@
     --page:#f5f4f1; --ink:#1a1c1f; --ink2:#565b62; --ink3:#8b9199;
     --panel:#fff; --edge:#dcdad5; --rule:#e6e4df;
     --hot:#c0392b; --warm:#d98324; --cool:#2f6f8f; --air:#4a9d7f;
+    --mag:#7d5ba6;
     --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
   }
   @media (prefers-color-scheme:dark){:root{
     --page:#131619; --ink:#e7eaed; --ink2:#a4abb3; --ink3:#767d85;
     --panel:#1b1f24; --edge:#2f353c; --rule:#272c32;
-    --hot:#e8695c; --warm:#e8a659; --cool:#6aaed0; --air:#5fc39d;}}
+    --hot:#e8695c; --warm:#e8a659; --cool:#6aaed0; --air:#5fc39d; --mag:#a98fd0;}}
   :root[data-theme="dark"]{--page:#131619;--ink:#e7eaed;--ink2:#a4abb3;--ink3:#767d85;
     --panel:#1b1f24;--edge:#2f353c;--rule:#272c32;
-    --hot:#e8695c;--warm:#e8a659;--cool:#6aaed0;--air:#5fc39d;}
+    --hot:#e8695c;--warm:#e8a659;--cool:#6aaed0;--air:#5fc39d;--mag:#a98fd0;}
   :root[data-theme="light"]{--page:#f5f4f1;--ink:#1a1c1f;--ink2:#565b62;--ink3:#8b9199;
     --panel:#fff;--edge:#dcdad5;--rule:#e6e4df;
-    --hot:#c0392b;--warm:#d98324;--cool:#2f6f8f;--air:#4a9d7f;}
+    --hot:#c0392b;--warm:#d98324;--cool:#2f6f8f;--air:#4a9d7f;--mag:#7d5ba6;}
 
   body{background:var(--page);color:var(--ink);
        font-family:"PingFang TC","Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
@@ -37,6 +38,7 @@
   .fig{background:var(--panel);border:1px solid var(--edge);border-radius:6px;
        padding:1.25rem;overflow-x:auto;}
   .fig svg{display:block;width:100%;min-width:44rem;height:auto;}
+  .fig.narrow svg{min-width:30rem;max-width:40rem;margin:0 auto;}
 
   .alert{border:1px solid var(--hot);border-left:4px solid var(--hot);
          border-radius:5px;padding:1.1rem 1.4rem;
@@ -45,6 +47,13 @@
               text-transform:uppercase;color:var(--hot);font-weight:700;
               display:block;margin-bottom:.35rem;}
   .alert p{color:var(--ink);}
+  .note{border:1px solid var(--cool);border-left:4px solid var(--cool);
+        border-radius:5px;padding:1.1rem 1.4rem;
+        background:color-mix(in srgb,var(--cool) 7%,transparent);}
+  .note .tag{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;
+             text-transform:uppercase;color:var(--cool);font-weight:700;
+             display:block;margin-bottom:.35rem;}
+  .note p{color:var(--ink);}
 
   .tablewrap{overflow-x:auto;border:1px solid var(--edge);border-radius:5px;}
   table{width:100%;border-collapse:collapse;font-size:.87rem;}
@@ -69,24 +78,35 @@
 <div class="wrap">
   <header>
     <p class="eyebrow">WRO 2026 · 智慧香爐 · 外觀 CAD</p>
-    <h1>桌上型展示機設計說明</h1>
-    <p>參數化 OpenSCAD ·  180 × 180 × 196 mm ·  FDM 分件列印 ·  2026-08-02</p>
+    <h1>桌上型無明火展示機設計說明</h1>
+    <p>參數化 OpenSCAD · 180 × 180 × 196 mm · FDM 分件列印 7 件 · 2026-08-09</p>
   </header>
+
+  <section class="note">
+    <span class="tag">定位 · 這台機器在展示什麼</span>
+    <p>這是<strong>競賽用縮尺展示機</strong>：以超音波冷霧當煙源（<strong>全程無明火</strong>），
+       完整演示「偵測 → 分類 → 主動致動」閉環——CO₂ 前饋抽排、悶燒特徵偵測、
+       理香機構回正。理香機構（梅花五孔插孔板）定位為 <strong>PoC 展示與未來選配</strong>；
+       商業主打是既有香爐的 retrofit 監測＋抽排模組（交接文件 §0，2026-08-07 拍板）。</p>
+    <p style="margin-bottom:0">結構本身仍按<strong>真火情境</strong>設計（金屬爐盆、空氣間隙、禁 PLA 區）——
+       展示不點火，但機器不是道具。</p>
+  </section>
 
   <section class="alert">
     <span class="tag">核心約束 · 熱</span>
-    <p><strong>熱電偶聯鎖門檻是 150 °C 觸發 / 130 °C 解除</strong>（2026-08-02 由 80/60 調高，臨時值待實測）。熱電偶懸於爐面上方 2–3 cm，該處<strong>預估 120 °C</strong>，燃燒艙外殼會接近這個溫度。
-       PLA 的熱變形溫度只有 55–60 °C——<strong>燃燒艙若用 PLA 列印會軟化變形</strong>。</p>
-    <p style="margin-bottom:0">因此整個設計圍繞一件事：<strong>不讓塑膠靠近熱源</strong>。
+    <p><strong>熱電偶聯鎖門檻 150 °C 觸發 / 130 °C 解除</strong>（2026-08-02 由 80/60 調高，臨時值待實測）。
+       真火情境下熱電偶位置預估 120 °C，燃燒艙外殼會接近這個溫度。
+       PLA 熱變形溫度只有 55–60 °C——<strong>近熱源零件一律禁 PLA</strong>。</p>
+    <p style="margin-bottom:0">因此設計圍繞一件事：<strong>不讓塑膠靠近熱源</strong>。
        燃燒由金屬爐盆承接，爐盆與塑膠之間留 8 mm 空氣間隙（空氣是最好的絕熱材），
        電子艙再以 14 mm 隔熱層與燃燒艙分開並開對流縫。</p>
   </section>
 
   <section>
-    <h2>剖面圖 — 熱區隔與氣流</h2>
+    <h2>剖面圖 — 熱區隔、氣流與理香機構</h2>
     <div class="fig">
-      <svg viewBox="0 0 900 560" role="img"
-           aria-label="香爐縱剖面圖：由下而上為電子艙、隔熱層、燃燒艙含金屬爐盆與空氣間隙、集煙罩；後方為抽風機與排氣口，前方為感測器艙">
+      <svg viewBox="0 0 900 600" role="img"
+           aria-label="香爐縱剖面圖：由下而上為電子艙、隔熱層、燃燒艙含金屬爐盆與霧化模組、集煙罩內含插孔板與電磁鐵座；後方為抽風機與排氣口，前方為感測器艙">
         <defs>
           <marker id="flow" viewBox="0 0 10 10" refX="8" refY="5"
                   markerWidth="5" markerHeight="5" orient="auto-start-reverse">
@@ -104,99 +124,361 @@
 
         <g font-family="ui-monospace, monospace" font-size="11">
 
-          <!-- ══ 集煙罩 ══ -->
-          <path d="M170,90 L730,90 L648,226 L252,226 Z" fill="none"
+          <!-- ══ 集煙罩（下寬 156 → 頂開口 96，向上收） ══ -->
+          <path d="M252,266 L340,120 L560,120 L648,266" fill="none"
                 stroke="var(--warm)" stroke-width="2.5"/>
-          <path d="M186,96 L714,96 L640,220 L260,220 Z" fill="none"
-                stroke="var(--warm)" stroke-width="1.2" opacity=".55"/>
-          <text x="450" y="76" text-anchor="middle" fill="var(--warm)" font-weight="700">集煙罩 hood</text>
-          <text x="450" y="118" text-anchor="middle" fill="var(--ink3)" font-size="10">投香口 96 mm</text>
+          <text x="710" y="150" fill="var(--warm)" font-weight="700">集煙罩 hood</text>
+          <text x="710" y="165" fill="var(--ink3)" font-size="10">頂開口（投香口）96 mm</text>
+
+          <!-- 理香機構：插孔板（落座 hood 局部 52，近頂） -->
+          <rect x="346" y="146" width="208" height="13" fill="var(--mag)" opacity=".35"
+                stroke="var(--mag)" stroke-width="1.5"/>
+          <!-- 電磁鐵座（板下方，標齊活動格） -->
+          <rect x="356" y="170" width="188" height="40" fill="none"
+                stroke="var(--mag)" stroke-width="1.5" stroke-dasharray="5 3"/>
+          <!-- 套筒 ×3（剖面看到左、中、右三支；中支為被動格，落座略低） -->
+          <g stroke="var(--ink)" stroke-width="1.4" fill="var(--panel)">
+            <rect x="357" y="70"  width="14" height="88"/>
+            <rect x="443" y="76"  width="14" height="88"/>
+            <rect x="529" y="70"  width="14" height="88"/>
+          </g>
+          <text x="120" y="140" fill="var(--mag)" font-weight="700">理香機構（PoC）</text>
+          <text x="120" y="155" fill="var(--ink2)" font-size="10">插孔板 ⌀84×6，梅花五孔</text>
+          <text x="120" y="168" fill="var(--ink2)" font-size="10">電磁鐵座吊掛板下（M4×4）</text>
+          <text x="120" y="181" fill="var(--ink3)" font-size="9.5">鋁套筒 ⌀10×40，插未點燃的香</text>
+          <path d="M262,146 L342,150" stroke="var(--mag)" stroke-width="1" opacity=".6"/>
 
           <!-- ══ 燃燒艙 ══ -->
-          <rect x="252" y="226" width="396" height="158" fill="none"
+          <rect x="252" y="266" width="396" height="158" fill="none"
                 stroke="var(--hot)" stroke-width="2.5"/>
-          <!-- 空氣間隙（陰影） -->
-          <rect x="258" y="232" width="384" height="146" fill="url(#hatch)" opacity=".5"/>
-          <!-- 金屬爐盆 -->
-          <path d="M329,258 L571,258 L571,357 L329,357 Z" fill="none"
+          <rect x="258" y="272" width="384" height="146" fill="url(#hatch)" opacity=".5"/>
+          <!-- 金屬爐盆（兼霧化水盤） -->
+          <path d="M329,298 L571,298 L571,397 L329,397 Z" fill="none"
                 stroke="var(--ink)" stroke-width="3"/>
-          <text x="450" y="312" text-anchor="middle" fill="var(--ink)" font-weight="700">金屬爐盆</text>
-          <text x="450" y="328" text-anchor="middle" fill="var(--ink3)" font-size="10">⌀110 × 45（自備）</text>
+          <text x="450" y="390" text-anchor="middle" fill="var(--ink)" font-size="10" font-weight="700">金屬爐盆 ⌀110×45（自備）＝霧化水盤</text>
+          <!-- 水位與霧化模組 -->
+          <line x1="333" y1="360" x2="567" y2="360" stroke="var(--cool)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="575" y="364" fill="var(--cool)" font-size="9.5">水位 ~20</text>
+          <ellipse cx="450" cy="368" rx="30" ry="7" fill="none" stroke="var(--cool)" stroke-width="2"/>
+          <text x="450" y="345" text-anchor="middle" fill="var(--cool)" font-size="9.5">超音波霧化 ⌀26（無明火煙源）</text>
+          <!-- 冷霧 -->
+          <path d="M420,330 q-6,-12 2,-22 M450,332 q-6,-14 2,-26 M480,330 q-6,-12 2,-22"
+                stroke="var(--cool)" stroke-width="1.5" fill="none" opacity=".7"/>
           <!-- 空氣間隙標註 -->
-          <line x1="294" y1="300" x2="325" y2="300" stroke="var(--air)" stroke-width="1.5"
+          <line x1="294" y1="330" x2="325" y2="330" stroke="var(--air)" stroke-width="1.5"
                 marker-start="url(#dim)" marker-end="url(#dim)"/>
-          <text x="240" y="296" fill="var(--air)" font-size="10" font-weight="700">空氣間隙</text>
-          <text x="248" y="309" fill="var(--air)" font-size="10">8 mm</text>
-          <text x="660" y="250" fill="var(--hot)" font-weight="700">燃燒艙 chamber</text>
-          <text x="660" y="265" fill="var(--ink3)" font-size="10">預估 120 °C</text>
+          <text x="236" y="322" fill="var(--air)" font-size="10" font-weight="700">空氣間隙</text>
+          <text x="244" y="335" fill="var(--air)" font-size="10">8 mm</text>
+          <text x="660" y="290" fill="var(--hot)" font-weight="700">燃燒艙 chamber</text>
+          <text x="660" y="305" fill="var(--ink3)" font-size="10">真火情境預估 120 °C</text>
+          <text x="660" y="318" fill="var(--ink3)" font-size="10">無明火展示＝常溫</text>
 
           <!-- 熱電偶 -->
-          <path d="M329,340 L300,340 L300,398" stroke="var(--hot)" stroke-width="2" fill="none"/>
-          <circle cx="329" cy="340" r="4" fill="var(--hot)"/>
-          <text x="150" y="338" fill="var(--hot)" font-size="10">熱電偶（本圖：貼爐盆外壁）</text>
-          <text x="150" y="351" fill="var(--warm)" font-size="9">⚠ 交接文件 §7 為「懸於爐面上方 2-3cm」</text>
-          <text x="150" y="362" fill="var(--warm)" font-size="9">   兩者量到的溫度不同，尚待擇一</text>
+          <circle cx="380" cy="273" r="4" fill="var(--hot)"/>
+          <text x="120" y="238" fill="var(--hot)" font-size="10">熱電偶尖端：爐面上方 25 mm</text>
+          <text x="120" y="251" fill="var(--warm)" font-size="9">⚠ 尚無支架零件——位置是規格目標，</text>
+          <text x="120" y="262" fill="var(--warm)" font-size="9">   不是已落實的設計（待補支架）</text>
+          <path d="M255,243 L374,269" stroke="var(--hot)" stroke-width="1" opacity=".5"/>
 
           <!-- ══ 隔熱層 ══ -->
-          <rect x="252" y="384" width="396" height="31" fill="none"
+          <rect x="252" y="424" width="396" height="31" fill="none"
                 stroke="var(--air)" stroke-width="2" stroke-dasharray="6 3"/>
-          <text x="450" y="404" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
+          <text x="450" y="444" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
             隔熱空氣層 14 mm ＋ 對流通風縫</text>
-          <!-- 對流箭頭 -->
-          <path d="M268,412 L268,388" stroke="var(--air)" stroke-width="1.5" marker-end="url(#flow)"/>
-          <path d="M632,412 L632,388" stroke="var(--air)" stroke-width="1.5" marker-end="url(#flow)"/>
 
           <!-- ══ 電子艙 ══ -->
-          <rect x="230" y="415" width="440" height="136" fill="none"
+          <rect x="230" y="455" width="440" height="126" fill="none"
                 stroke="var(--cool)" stroke-width="2.5"/>
-          <rect x="258" y="470" width="150" height="10" fill="var(--cool)" opacity=".6"/>
-          <text x="333" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">MATRIX Mini R4</text>
-          <rect x="440" y="470" width="140" height="10" fill="var(--cool)" opacity=".6"/>
-          <text x="510" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">Raspberry Pi 5</text>
-          <rect x="600" y="470" width="52" height="10" fill="var(--cool)" opacity=".6"/>
-          <text x="626" y="493" text-anchor="middle" fill="var(--ink2)" font-size="9.5">D4184</text>
-          <text x="450" y="440" text-anchor="middle" fill="var(--cool)" font-weight="700">電子艙 base（常溫）</text>
-          <text x="450" y="536" text-anchor="middle" fill="var(--ink3)" font-size="10">
+          <rect x="258" y="505" width="150" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="333" y="528" text-anchor="middle" fill="var(--ink2)" font-size="9.5">MATRIX Mini R4</text>
+          <rect x="440" y="505" width="140" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="510" y="528" text-anchor="middle" fill="var(--ink2)" font-size="9.5">Raspberry Pi 5</text>
+          <rect x="600" y="505" width="52" height="10" fill="var(--cool)" opacity=".6"/>
+          <text x="626" y="528" text-anchor="middle" fill="var(--ink2)" font-size="9.5">D4184</text>
+          <text x="450" y="478" text-anchor="middle" fill="var(--cool)" font-weight="700">電子艙 base（常溫）</text>
+          <text x="450" y="568" text-anchor="middle" fill="var(--ink3)" font-size="10">
             側面進氣柵格 → 自然對流帶走廢熱</text>
 
-          <!-- ══ 抽風路徑 ══ -->
-          <path d="M450,300 C450,250 500,214 620,206" stroke="var(--warm)" stroke-width="2.5"
+          <!-- ══ 抽風路徑（冷霧不自然上升，靠抽吸） ══ -->
+          <path d="M450,320 C460,270 520,252 620,246" stroke="var(--warm)" stroke-width="2.5"
                 fill="none" marker-end="url(#flow)" stroke-dasharray="7 4"/>
-          <text x="500" y="252" fill="var(--warm)" font-size="10">煙自然上升</text>
+          <text x="492" y="270" fill="var(--warm)" font-size="10">冷霧被風扇抽走</text>
 
-          <rect x="700" y="180" width="86" height="76" rx="4" fill="none"
+          <rect x="700" y="220" width="86" height="76" rx="4" fill="none"
                 stroke="var(--ink)" stroke-width="2"/>
-          <circle cx="743" cy="218" r="26" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
-          <circle cx="743" cy="218" r="7" fill="var(--ink)" opacity=".5"/>
-          <text x="743" y="170" text-anchor="middle" fill="var(--ink)" font-size="10.5" font-weight="700">
+          <circle cx="743" cy="258" r="26" fill="none" stroke="var(--ink)" stroke-width="1.5"/>
+          <circle cx="743" cy="258" r="7" fill="var(--ink)" opacity=".5"/>
+          <text x="743" y="210" text-anchor="middle" fill="var(--ink)" font-size="10.5" font-weight="700">
             5015 鼓風機</text>
-          <path d="M648,206 L696,206" stroke="var(--warm)" stroke-width="2.5"
+          <path d="M648,246 L696,246" stroke="var(--warm)" stroke-width="2.5"
                 marker-end="url(#flow)"/>
-          <text x="640" y="196" fill="var(--warm)" font-size="10">煙道 46×30</text>
-          <path d="M788,218 L850,218" stroke="var(--warm)" stroke-width="3"
+          <text x="636" y="236" fill="var(--warm)" font-size="10">煙道 46×30</text>
+          <path d="M788,258 L850,258" stroke="var(--warm)" stroke-width="3"
                 marker-end="url(#flow)"/>
-          <text x="800" y="208" fill="var(--warm)" font-size="10">排氣</text>
-          <text x="700" y="276" fill="var(--ink3)" font-size="9.5">離心式：軸向進氣、徑向出風</text>
+          <text x="800" y="248" fill="var(--warm)" font-size="10">排氣</text>
 
           <!-- ══ 感測器艙 ══ -->
-          <rect x="118" y="420" width="58" height="128" rx="4" fill="none"
+          <rect x="118" y="458" width="58" height="120" rx="4" fill="none"
                 stroke="var(--air)" stroke-width="2"/>
-          <text x="147" y="410" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
+          <text x="147" y="448" text-anchor="middle" fill="var(--air)" font-size="10.5" font-weight="700">
             感測器艙</text>
-          <text x="147" y="452" text-anchor="middle" fill="var(--ink2)" font-size="9">SCD41</text>
-          <text x="147" y="500" text-anchor="middle" fill="var(--ink2)" font-size="9">SHT31</text>
-          <path d="M64,484 L112,484" stroke="var(--air)" stroke-width="2"
+          <text x="147" y="492" text-anchor="middle" fill="var(--ink2)" font-size="9">SCD41</text>
+          <text x="147" y="538" text-anchor="middle" fill="var(--ink2)" font-size="9">SHT31</text>
+          <path d="M64,520 L112,520" stroke="var(--air)" stroke-width="2"
                 marker-end="url(#flow)"/>
-          <text x="30" y="472" fill="var(--air)" font-size="9.5">參拜者</text>
-          <text x="30" y="484" fill="var(--air)" font-size="9.5">呼吸帶</text>
+          <text x="30" y="508" fill="var(--air)" font-size="9.5">參拜者</text>
+          <text x="30" y="520" fill="var(--air)" font-size="9.5">呼吸帶</text>
 
           <!-- ══ 總高標註 ══ -->
-          <line x1="866" y1="90" x2="866" y2="551" stroke="var(--ink3)" stroke-width="1"
+          <line x1="866" y1="120" x2="866" y2="581" stroke="var(--ink3)" stroke-width="1"
                 marker-start="url(#dim)" marker-end="url(#dim)"/>
-          <text x="880" y="325" fill="var(--ink3)" font-size="10"
-                transform="rotate(90 880 325)" text-anchor="middle">總高 196 mm</text>
+          <text x="880" y="350" fill="var(--ink3)" font-size="10"
+                transform="rotate(90 880 350)" text-anchor="middle">總高 196 mm（不含套筒）</text>
         </g>
       </svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>理香機構 — 梅花五孔插孔板（俯視）</h2>
+    <div class="fig narrow">
+      <svg viewBox="0 0 480 420" role="img"
+           aria-label="插孔板俯視圖：四個主動插孔呈 2×2、下方各有電磁鐵，中央一個被動導引孔，四支 M4 螺柱在 0、90、180、270 度">
+        <g font-family="ui-monospace, monospace" font-size="11">
+          <!-- 板 ⌀84 → 半徑 150px（1mm ≈ 3.57px） -->
+          <circle cx="220" cy="200" r="150" fill="var(--panel)" stroke="var(--ink)" stroke-width="2.5"/>
+          <!-- 電磁鐵（板下，虛線 ⌀25 → r=44.6）位於 (±60.7,±60.7) -->
+          <g fill="none" stroke="var(--mag)" stroke-width="1.5" stroke-dasharray="5 3" opacity=".85">
+            <circle cx="159.3" cy="139.3" r="44.6"/><circle cx="280.7" cy="139.3" r="44.6"/>
+            <circle cx="159.3" cy="260.7" r="44.6"/><circle cx="280.7" cy="260.7" r="44.6"/>
+          </g>
+          <!-- 喇叭口（⌀13.8 → r=24.6）＋插孔（⌀10.8 → r=19.3） -->
+          <g>
+            <g fill="none" stroke="var(--ink3)" stroke-width="1">
+              <circle cx="159.3" cy="139.3" r="24.6"/><circle cx="280.7" cy="139.3" r="24.6"/>
+              <circle cx="159.3" cy="260.7" r="24.6"/><circle cx="280.7" cy="260.7" r="24.6"/>
+              <circle cx="220" cy="200" r="24.6"/>
+            </g>
+            <g fill="var(--rule)" stroke="var(--ink)" stroke-width="1.6">
+              <circle cx="159.3" cy="139.3" r="19.3"/><circle cx="280.7" cy="139.3" r="19.3"/>
+              <circle cx="159.3" cy="260.7" r="19.3"/><circle cx="280.7" cy="260.7" r="19.3"/>
+              <circle cx="220" cy="200" r="19.3"/>
+            </g>
+          </g>
+          <!-- M4 螺柱 r=34 → 121.4px，0/90/180/270 -->
+          <g fill="var(--ink3)">
+            <circle cx="341.4" cy="200" r="8"/><circle cx="98.6" cy="200" r="8"/>
+            <circle cx="220" cy="78.6" r="8"/><circle cx="220" cy="321.4" r="8"/>
+          </g>
+          <!-- 標註 -->
+          <line x1="159.3" y1="139.3" x2="280.7" y2="139.3" stroke="var(--ink3)" stroke-width="1"
+                marker-start="url(#dim)" marker-end="url(#dim)"/>
+          <text x="220" y="130" text-anchor="middle" fill="var(--ink3)" font-size="10">孔距 34</text>
+          <text x="220" y="205" text-anchor="middle" fill="var(--warm)" font-size="9" font-weight="700">被動</text>
+          <text x="60" y="60" fill="var(--mag)" font-size="10" font-weight="700">⌀25 電磁鐵 ×4（板下）</text>
+          <text x="60" y="74" fill="var(--ink3)" font-size="9.5">主動格：吸套筒底鐵墊圈回正</text>
+          <text x="300" y="368" fill="var(--ink3)" font-size="10">M4 螺柱 ×4（r=34）</text>
+          <text x="60" y="368" fill="var(--ink2)" font-size="10">板 ⌀84 × 6 ｜ 孔 ⌀10.8 ＋ 喇叭口 ⌀13.8</text>
+        </g>
+      </svg>
+    </div>
+    <div class="grid" style="margin-top:1.25rem">
+      <div class="card">
+        <h3>為什麼是梅花五孔</h3>
+        <p style="margin-bottom:0">2×2 主動陣列是 ⌀84 板上塞得下的極限（⌀25 電磁鐵、孔距 34 是幾何逼出來的）。
+           中央加一個<strong>被動導引孔</strong>——中心點離四顆磁鐵邊 6.1 mm，是唯一放得下第 5 孔的位置，
+           外圈任何角度都會撞 M4 螺柱或擦到磁鐵。梅花排列同時是傳統香爐的視覺語言。</p>
+      </div>
+      <div class="card">
+        <h3>孔口喇叭：把「亂插」做進硬體</h3>
+        <p style="margin-bottom:0">每個孔口有徑向 1.5、深 2.0 的淺錐導引——插香不必對準孔軸也滑得進套筒，
+           行為門檻降到最低。錐面與垂直夾角 36.9°，低於 45° 懸空門檻，平躺列印<strong>免支撐</strong>。</p>
+      </div>
+      <div class="card">
+        <h3>磁力作用在套筒，不在香枝</h3>
+        <p style="margin-bottom:0">鋁套筒底部套鐵墊圈，電磁鐵脈衝吸引墊圈把歪掉的套筒拉正
+           （單次 ≤2 s、佔空比 ≤30%）。市售任何香都能用；斷電＝不動＝照常當一般香爐。
+           <strong>展示不需要明火</strong>——插未點燃的香即可演示回正。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>它怎麼理香 — 吸平墊圈＝扶正香（側視動作序列）</h2>
+    <p>機構不碰香，扶的是「香的插座」：香枝是竹木做的，磁力對它無效，
+       所以把可被磁力作用的東西做進插座——每格是「鋁套筒＋鐵墊圈＋電磁鐵」一組。
+       套筒在孔內的單邊 0.4 mm 餘隙<strong>不是公差，是功能</strong>：會擺動才回正得了。
+       擺動上限由喇叭口以下的直段（6−2＝4 mm）與總餘隙 0.8 mm 決定，
+       幾何推導約 <strong>±11°</strong>（實際可回正角度待實測）。</p>
+    <div class="fig">
+      <svg viewBox="0 0 900 330" role="img"
+           aria-label="理香動作三步側視圖：香連套筒傾斜且鐵墊圈翹起；電磁鐵脈衝把墊圈往水平吸合面吸平；套筒與香回正後斷電由重力維持">
+        <defs>
+          <marker id="pull" viewBox="0 0 10 10" refX="8" refY="5"
+                  markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+          </marker>
+        </defs>
+        <g font-family="ui-monospace, monospace" font-size="11">
+
+          <!-- ─── 每格共用畫法：板（開孔＋喇叭口）、套筒、香、墊圈、磁鐵 ─── -->
+          <!-- 步驟 1：歪了 -->
+          <g transform="translate(10,0)">
+            <text x="142" y="28" text-anchor="middle" fill="var(--ink)" font-weight="700">① 歪了</text>
+            <g transform="rotate(-12 142 137)">
+              <rect x="139" y="60" width="6" height="80" fill="var(--warm)"/>
+              <rect x="132" y="128" width="20" height="94" rx="2"
+                    fill="var(--panel)" stroke="var(--ink)" stroke-width="1.6"/>
+              <rect x="125" y="222" width="34" height="6" fill="var(--ink2)"/>
+            </g>
+            <rect x="40" y="130" width="88" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <rect x="156" y="130" width="104" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <path d="M120,130 L128,136 M164,130 L156,136" stroke="var(--ink)" stroke-width="1.2"/>
+            <rect x="114" y="252" width="56" height="44" rx="3"
+                  fill="none" stroke="var(--mag)" stroke-width="2"/>
+            <text x="142" y="278" text-anchor="middle" fill="var(--mag)" font-size="9.5">電磁鐵</text>
+            <text x="142" y="290" text-anchor="middle" fill="var(--ink3)" font-size="9">斷電</text>
+            <text x="142" y="316" text-anchor="middle" fill="var(--ink2)" font-size="10">香連套筒傾斜，墊圈翹起</text>
+          </g>
+
+          <!-- 步驟 2：脈衝 -->
+          <g transform="translate(310,0)">
+            <text x="142" y="28" text-anchor="middle" fill="var(--ink)" font-weight="700">② 脈衝 ≤2 s</text>
+            <g transform="rotate(-5 142 137)">
+              <rect x="139" y="60" width="6" height="80" fill="var(--warm)"/>
+              <rect x="132" y="128" width="20" height="94" rx="2"
+                    fill="var(--panel)" stroke="var(--ink)" stroke-width="1.6"/>
+              <rect x="125" y="222" width="34" height="6" fill="var(--ink2)"/>
+            </g>
+            <rect x="40" y="130" width="88" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <rect x="156" y="130" width="104" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <path d="M120,130 L128,136 M164,130 L156,136" stroke="var(--ink)" stroke-width="1.2"/>
+            <rect x="114" y="252" width="56" height="44" rx="3"
+                  fill="color-mix(in srgb,var(--mag) 18%,transparent)"
+                  stroke="var(--mag)" stroke-width="2.5"/>
+            <text x="142" y="278" text-anchor="middle" fill="var(--mag)" font-size="9.5" font-weight="700">電磁鐵</text>
+            <text x="142" y="290" text-anchor="middle" fill="var(--mag)" font-size="9" font-weight="700">通電 12V 20N</text>
+            <path d="M128,244 L128,232 M142,242 L142,230 M156,244 L156,232"
+                  stroke="var(--mag)" stroke-width="2" marker-end="url(#pull)"/>
+            <text x="196" y="240" fill="var(--mag)" font-size="9.5">吸墊圈向</text>
+            <text x="196" y="252" fill="var(--mag)" font-size="9.5">水平吸合面</text>
+            <text x="142" y="316" text-anchor="middle" fill="var(--ink2)" font-size="10">磁力把鐵墊圈往下吸「平」</text>
+          </g>
+
+          <!-- 步驟 3：回正 -->
+          <g transform="translate(610,0)">
+            <text x="142" y="28" text-anchor="middle" fill="var(--ink)" font-weight="700">③ 回正</text>
+            <rect x="139" y="60" width="6" height="80" fill="var(--warm)"/>
+            <rect x="132" y="128" width="20" height="94" rx="2"
+                  fill="var(--panel)" stroke="var(--ink)" stroke-width="1.6"/>
+            <rect x="125" y="222" width="34" height="6" fill="var(--ink2)"/>
+            <rect x="40" y="130" width="88" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <rect x="156" y="130" width="104" height="14" fill="var(--rule)" stroke="var(--ink)" stroke-width="1.4"/>
+            <path d="M120,130 L128,136 M164,130 L156,136" stroke="var(--ink)" stroke-width="1.2"/>
+            <rect x="114" y="252" width="56" height="44" rx="3"
+                  fill="none" stroke="var(--mag)" stroke-width="2"/>
+            <text x="142" y="278" text-anchor="middle" fill="var(--mag)" font-size="9.5">電磁鐵</text>
+            <text x="142" y="290" text-anchor="middle" fill="var(--ink3)" font-size="9">斷電</text>
+            <!-- 行程與氣隙標註 -->
+            <line x1="240" y1="228" x2="240" y2="252" stroke="var(--ink3)" stroke-width="1"
+                  marker-start="url(#dim)" marker-end="url(#dim)"/>
+            <text x="248" y="244" fill="var(--ink3)" font-size="9">氣隙 3</text>
+            <text x="142" y="316" text-anchor="middle" fill="var(--ink2)" font-size="10">墊圈貼平＝套筒立直，重力維持</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div class="grid" style="margin-top:1.25rem">
+      <div class="card">
+        <h3>觸發鏈：源頭治理</h3>
+        <p style="margin-bottom:0">悶燒特徵＝<strong>CO/CO₂ 比異常上升＋爐面溫度偏低</strong>
+           （低溫缺氧的不完全燃燒）。決策層判定 → 下 <code>CMD,MAG,PULSE,n</code> 給 R4
+           → 對應格脈衝理香，恢復通風通道——污染在生成之前被抑制。</p>
+      </div>
+      <div class="card">
+        <h3>脈衝紀律：熱與需求指向同一答案</h3>
+        <p style="margin-bottom:0">單次 ≤2 s、佔空比 ≤30%，軟體（R4 計時）與使用規範兩層都限。
+           線圈連續通電幾分鐘就燙手、壽命驟減；而理香本質是<strong>事件驅動的偶發矯正</strong>，
+           不是連續運轉。行程需求約 8 mm、吸合面氣隙 3 mm。</p>
+      </div>
+      <div class="card">
+        <h3>備援與誠實邊界</h3>
+        <p style="margin-bottom:0">20N 是<strong>標稱值未實測</strong>；若吸力不足，備援＝純機械
+           <strong>錐形套筒</strong>（無磁，靠重力自回正）。實際吸力、回正行程、
+           歪幾度救得回來——都要實體才知道（見「驗證現況」）。</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem;margin-bottom:.75rem">幾何與磁路規格（真相來源：mech_params.py / params.scad）</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>項目</th><th>值</th><th>為什麼是這個數</th></tr></thead>
+        <tbody>
+          <tr><td>鋁套筒</td><td class="n">⌀10 × 40，壁 1.5（內徑 7）</td>
+              <td>市售公制鋁管規格；壁厚 2026-08-07 由 1.0 → 1.5（庫存規格）。鋁＝耐近火＋<strong>非鐵磁</strong>，磁力只抓墊圈不抓管身</td></tr>
+          <tr><td>鐵墊圈</td><td class="n">⌀16 × 2，套於筒底</td>
+              <td>磁路唯一受力件。⌀16 &gt; 孔 ⌀10.8——墊圈同時是套筒的防脫肩</td></tr>
+          <tr><td>插孔＋餘隙</td><td class="n">孔 ⌀10.8＝10 ＋ 0.4×2</td>
+              <td>單邊 0.4 是「能擺動」的功能餘隙；下限 0.2（再小 3D 列印會卡死）是紅線常數</td></tr>
+          <tr><td>孔口喇叭</td><td class="n">徑向 +1.5、深 2.0</td>
+              <td>導引插香；錐面 36.9° 免支撐；直段剩 4 mm 仍足夠導向</td></tr>
+          <tr><td>電磁鐵</td><td class="n">⌀25 × 20，12V 標稱 20N</td>
+              <td>吸合面正對孔位（磁鐵間距＝孔距，規則強制對齊）；⌀25 &lt; 孔距 34 免互相干涉</td></tr>
+          <tr><td>氣隙</td><td class="n">3 mm（上限 5）</td>
+              <td>磁力隨距離急衰，超過 5 mm 吸力衰減過大——3 mm 是吸力與組裝公差的折衷</td></tr>
+          <tr><td>行程</td><td class="n">8 mm（&lt; 套筒長的一半）</td>
+              <td>理香需要的套筒位移；規則檢查行程不可大到讓套筒脫離孔的導引</td></tr>
+          <tr><td>板下懸掛高度</td><td class="n">5 mm＝墊圈 2 ＋ 氣隙 3</td>
+              <td>M4 螺柱高度由此推導——改氣隙，磁座、螺柱全部自動跟著動（單一基準）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="grid" style="margin-top:1.25rem">
+      <div class="card">
+        <h3>力學餘裕：0.165 N vs 20 N</h3>
+        <p style="margin-bottom:0">驅動套筒所需力＝重力×(1＋靜摩擦 0.4)＝<strong>0.165 N</strong>。
+           質量刻意用<strong>保守的 12 g</strong>（幾何推導管身只有 4.33 g，但墊圈是估值，
+           而估低是不安全的方向——這個數字推導出所需吸力）。標稱 20N 給出
+           <strong>約 121 倍</strong>餘裕，設計規則只要求 2 倍——就算標稱值灌水一個數量級，
+           氣隙偏大再折半，仍在安全區。摩擦係數 0.4（鋁—PETG）同為估值。</p>
+      </div>
+      <div class="card">
+        <h3>人優先於機器：IR 聯鎖</h3>
+        <p style="margin-bottom:0">IR 近接模組直入 R4 中斷腳：<strong>人手伸向爐面的瞬間，
+           一切機構動作立即中止</strong>——脈衝不會在有人插香時觸發。這不只是安全規格，
+           是文化規格：儀式中的人永遠優先於機器，毫秒級、不依賴 Pi。</p>
+      </div>
+      <div class="card">
+        <h3>板＋磁座分兩件，M4 鎖合</h3>
+        <p style="margin-bottom:0">比做成單一複雜件好印：板平躺印、磁座凹槽朝上印，
+           <strong>兩件都零懸空</strong>。電磁鐵由上方放進凹槽、板鎖上去壓住——
+           免膠、可拆換。磁座 ⌀80 比板小 4 mm，吊在板下不撞集煙罩的承接凸耳。</p>
+      </div>
+      <div class="card">
+        <h3>被否決的方案與現行 BOM</h3>
+        <p style="margin-bottom:0">機械手臂夾香被否決：爐面高溫、香灰侵蝕、成本、視覺突兀嚇人。
+           磁力隔著板作用、無外露活動件。逐格定址（<code>CMD,MAG,PULSE,n</code>）。
+           <strong>誠實註記</strong>：現行 BOM 電磁鐵 2 顆（U4 升級選單到 4 顆做滿 2×2），
+           展示機 CAD 以 4 格滿配建模。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>無明火煙源 — 超音波冷霧</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>為什麼是冷霧，不是乾冰</h3>
+        <p style="margin-bottom:0">乾冰放出的 CO₂ 會頂穿 1500 ppm 硬警報、汙染「CO₂ 斜率＝人潮」的前饋論述。
+           超音波霧化完全不熱、不放 CO₂，可滴精油做香氣，金屬爐盆直接當水盤（水位約 20 mm，壓電片要沒入）。</p>
+      </div>
+      <div class="card">
+        <h3>冷霧不會自己上升——這反而是賣點</h3>
+        <p style="margin-bottom:0">熱煙靠浮力上升，冷霧會積在盆面。待機時霧積著，
+           CO₂ 一升高、風扇轉起來，觀眾看著霧被抽進集煙罩——<strong>抽排效果變成看得見的展示</strong>。
+           但集煙罩對非浮升煙源的捕集效率<strong>只有實體吹過才知道</strong>（見「尚未驗證」）。</p>
+      </div>
     </div>
   </section>
 
@@ -205,20 +487,20 @@
     <div class="grid">
       <div class="card">
         <h3>量測目的決定位置</h3>
-        <p style="margin-bottom:0">FSM 用 <code>CO₂ 斜率 &gt; 120 ppm/min</code> 偵測<strong>人潮</strong>，
-           據此前饋削峰。所以要量的是「<strong>參拜者實際呼吸到的空氣</strong>」，
-           而不是煙道裡的高濃度廢氣。裝前方朝外，量到的才是有意義的暴露值。</p>
+        <p style="margin-bottom:0">FSM 用 <code>CO₂ 斜率</code> 偵測<strong>人潮</strong>並前饋削峰，
+           要量的是「<strong>參拜者實際呼吸到的空氣</strong>」，不是煙道裡的高濃度廢氣。
+           裝前方朝外，量到的才是有意義的暴露值。</p>
       </div>
       <div class="card">
         <h3>SCD41 也受不了高溫</h3>
-        <p style="margin-bottom:0">SCD41 工作溫度上限約 60 °C，SHT31 雖然耐得住但讀值會失真。
+        <p style="margin-bottom:0">SCD41 工作上限約 60 °C，SHT31 耐得住但讀值會失真。
            放進煙道不只讀數沒意義，感測器本身也會壞。前方位置同時解決量測意義與耐溫兩個問題。</p>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>列印零件與材料</h2>
+    <h2>列印零件與材料（7 件）</h2>
     <div class="tablewrap">
       <table>
         <thead><tr><th>零件</th><th>尺寸 (mm)</th><th>列印方向</th><th>材料</th><th>說明</th></tr></thead>
@@ -228,16 +510,21 @@
           <tr><td class="n">chamber</td><td class="n">156×156×72</td><td>底面朝下</td>
               <td class="no">ABS / ASA / PETG</td><td>★最靠近熱源★ 含爐盆井、空氣間隙、隔熱層</td></tr>
           <tr><td class="n">hood</td><td class="n">156×156×62</td><td class="mid">開口朝下倒印</td>
-              <td class="no">ABS / ASA / PETG</td><td>倒印讓所有斜面自支撐，免支撐材</td></tr>
+              <td class="no">ABS / ASA / PETG</td><td>倒印讓所有斜面自支撐，免支撐材；內側四凸耳承接插孔板</td></tr>
           <tr><td class="n">fan_mount</td><td class="n">56×56×31</td><td>背面朝下</td>
               <td class="mid">PETG</td><td>會接觸排出的熱煙</td></tr>
           <tr><td class="n">sensor_pod</td><td class="n">62×26×58</td><td>背面朝下</td>
               <td class="ok">PLA 可</td><td>在前方，遠離熱源</td></tr>
+          <tr><td class="n">socket_plate</td><td class="n">⌀84×6</td><td>平躺</td>
+              <td class="no">PETG</td><td>理香插孔板，梅花五孔＋喇叭口。爐口上方＝禁 PLA 區</td></tr>
+          <tr><td class="n">magnet_deck</td><td class="n">⌀80×22</td><td class="mid">凹槽朝上</td>
+              <td class="no">PETG</td><td>電磁鐵座。與板分兩件 M4 鎖合——兩件都免支撐；磁鐵由上放入、板壓住</td></tr>
         </tbody>
       </table>
     </div>
     <p style="margin-top:1rem">壁厚 <code>2.4 mm</code>（0.4 噴嘴 × 6 走線）、底頂 <code>2.0 mm</code>、
-       配合間隙 <code>0.3 mm</code>。五個零件都放得進 220×220 列印床。</p>
+       配合間隙 <code>0.3 mm</code>、套筒滑動餘隙單邊 <code>0.4 mm</code>。七件都放得進 220×220 列印床
+       （排版見 <code>_view_列印排版.png</code>）。</p>
   </section>
 
   <section>
@@ -247,8 +534,15 @@
         <thead><tr><th>品項</th><th>規格</th><th>用途</th></tr></thead>
         <tbody>
           <tr><td>不鏽鋼碗／香灰盆</td><td class="n">⌀110 × 深 45</td>
-              <td><strong>關鍵件</strong>——承接燃燒，隔絕塑膠。買到後量實際尺寸改 <code>BOWL_D</code> / <code>BOWL_H</code></td></tr>
+              <td><strong>關鍵件</strong>——真火時承接燃燒、無明火時當霧化水盤。買到後量實際尺寸改 <code>BOWL_D</code> / <code>BOWL_H</code></td></tr>
+          <tr><td>鋁套筒＋鐵墊圈</td><td class="n">⌀10×40（壁 1.5）＋ ⌀16 墊圈，各 5</td>
+              <td>理香機構受力件。磁力作用在墊圈上；中央被動格沿用同料號</td></tr>
+          <tr><td>電磁鐵</td><td class="n">12V 20N ⌀25×20，4 顆</td>
+              <td>2×2 主動格。標稱 20N <strong>未實測</strong>，待拉力計驗證</td></tr>
+          <tr><td>超音波霧化模組</td><td class="n">壓電片 ⌀20，模組 ⌀26×12</td><td>無明火煙源，泡水運作</td></tr>
+          <tr><td>LED 側光條</td><td class="n">60×4×3</td><td>罩內照霧，展示可視性</td></tr>
           <tr><td>M3 自攻螺絲</td><td class="n">M3 × 8，約 16 支</td><td>板卡固定、風扇座、感測器艙</td></tr>
+          <tr><td>M4 自攻螺絲</td><td class="n">M4，4 支</td><td>插孔板鎖磁座螺柱（底孔 3.3，旋入式免螺帽）</td></tr>
           <tr><td>矽膠防滑墊</td><td class="n">⌀14 × 厚 1.2，4 個</td><td>底部凹槽已預留</td></tr>
           <tr><td>DC 電源插座</td><td class="n">5.5/2.1 面板式，⌀8 孔</td><td>後面板 12V 輸入</td></tr>
         </tbody>
@@ -257,29 +551,36 @@
   </section>
 
   <section>
-    <h2>尚未驗證的部分</h2>
+    <h2>驗證現況 — 什麼已被機器確認、什麼還要人</h2>
     <div class="grid">
       <div class="card">
-        <h3>⚠️ 需實測後修改的尺寸</h3>
-        <p style="margin-bottom:0">MATRIX Mini R4 <strong>官方未公佈外型尺寸</strong>，目前用
-           <code>90 × 70</code> 估值（以 Arduino UNO 68.6×53.4 為基礎放寬）。
-           SCD41／SHT31／D4184 模組尺寸同樣是估值。
-           <strong>拿到實體請量過再改參數</strong>——這些都在檔案頂端的參數區，改完重新算繪即可。</p>
+        <h3>✅ 已通過自動驗證（驗證CAD.py）</h3>
+        <p style="margin-bottom:0">OpenSCAD 實際算繪：7 件皆單一 manifold、無浮空塊；
+           兩兩干涉 21 組全過＋落座貼合檢查；列印性斜向懸空 0%；
+           功能開口貫通且外側淨空；規則層 48/48（含跨層一致性）；
+           STEP 匯出 21 檔經 OCCT 回讀複驗（體積、實體數、零件名）。
+           幾何基準快照會抓「改 A 參數讓 B 零件默默變形」。</p>
       </div>
       <div class="card">
-        <h3>⚠️ 幾何尚未算繪確認</h3>
-        <p style="margin-bottom:0">本機沒有 OpenSCAD，所以我用參數化腳本驗證了
-           <strong>尺寸邏輯</strong>（元件裝得下、零件放得進列印床、熱間隙存在、
-           煙道三處一致），但<strong>沒有實際算繪過幾何</strong>。
-           布林運算是否如預期、有無破面，要開 OpenSCAD 按 F6 才知道。</p>
+        <h3>⚠️ 尺寸估值（拿到實體要量）</h3>
+        <p style="margin-bottom:0">MATRIX Mini R4 <strong>官方未公佈外型尺寸</strong>，目前用
+           <code>90 × 70</code> 估值；SCD41／SHT31／D4184 模組、5015 風扇孔距同為估值。
+           量過後改 <code>params.scad</code> 重新算繪＋重匯 STEP 即可，全部參數化。</p>
+      </div>
+      <div class="card">
+        <h3>⚠️ 只有實體能回答的問題</h3>
+        <p style="margin-bottom:0">電磁鐵實際吸力與回正行程｜冷霧被集煙罩捕集的效率
+           （非浮升煙源，抽吸路徑要實吹）｜插香手感與喇叭口導引效果｜
+           熱電偶<strong>支架尚未設計</strong>（目前只有位置目標 25 mm）｜
+           聯鎖門檻 150/130 是臨時值，待真火實測。</p>
       </div>
     </div>
   </section>
 
   <footer>
-    智慧香爐 · 外觀 CAD 設計說明 · 2026-08-06<br>
-    尺寸來源 外觀CAD/params.scad · 零件 外觀CAD/parts/ · 外購件 外觀CAD/components/<br>
-    組裝與驗證進入點 外觀CAD/incense_burner.scad · 驗證 外觀CAD/驗證CAD.py<br>
-    檔案結構與 STEP 匯出說明見 外觀CAD/檔案結構與匯出.md
+    智慧香爐 · 外觀 CAD 設計說明 · 2026-08-09（取代 2026-08-06 版）<br>
+    尺寸唯一真相來源 外觀CAD/params.scad · 零件 parts/（一零件一檔） · 外購件 components/<br>
+    組裝與驗證進入點 incense_burner.scad · 驗證 驗證CAD.py · STEP 匯出 export_step.py → STEP/<br>
+    檔案結構與匯出說明見 檔案結構與匯出.md · 產品定位見《智慧香爐_硬體設計交接.md》§0
   </footer>
 </div>
