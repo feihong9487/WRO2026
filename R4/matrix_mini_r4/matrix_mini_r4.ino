@@ -75,6 +75,7 @@
 const uint8_t MUX_ADDR = 0x70;    // PCA9548A（MATRIX 函式庫用的位址）
 const uint8_t CH_SCD41 = 0;       // I2C1 埠
 const uint8_t CH_SHT31 = 1;       // I2C2 埠
+const uint8_t CH_PCF   = 2;       // I2C3 埠（PCF8574 致動板獨佔一孔，免分接線）
 // 切換多工器通道。第三方感測器函式庫不認得多工器，每次存取前要先切。
 inline void muxSelect(uint8_t ch)
 {
@@ -87,6 +88,7 @@ inline void muxSelect(uint8_t ch)
 #    define SENSOR_WIRE Wire
 const uint8_t CH_SCD41 = 0;       // 無多工器，僅為介面一致而保留
 const uint8_t CH_SHT31 = 0;
+const uint8_t CH_PCF   = 0;
 inline void muxSelect(uint8_t) {} // 空實作，編譯後不產生程式碼
 #endif
 
@@ -336,9 +338,12 @@ void ioWrite(uint8_t v)
         Serial.println(F("{\"err\":\"MAGNET_SIMULTANEOUS blocked\"}"));
     }
     outByte = v;
-    Wire1.beginTransmission(PCF8574_ADDR);
-    Wire1.write(outByte);
-    Wire1.endTransmission();
+    // ★必須先切多工器通道★ 四個 I²C 埠全在 PCA9548A 後面；感測迴圈
+    // 每秒都在切 ch0/ch1，不切回 ch2 的話這筆寫入會落到別的通道上。
+    muxSelect(CH_PCF);
+    SENSOR_WIRE.beginTransmission(PCF8574_ADDR);
+    SENSOR_WIRE.write(outByte);
+    SENSOR_WIRE.endTransmission();
 }
 
 void magnetOff()

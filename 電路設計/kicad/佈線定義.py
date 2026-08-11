@@ -53,7 +53,9 @@ COMPONENTS = [
                 ("9", "D4R p10 SO", IN, "TC_SO"),
                 ("10", "D1R p2 CS", OUT, "TC_CS"),
                 ("11", "D1L p3 PWM", OUT, "FAN_PWM"),
-                ("12", "USB - Pi 5", BID, "USB_PI_R4")]),
+                ("12", "USB - Pi 5", BID, "USB_PI_R4"),
+                ("13", "I2C3 SDA", BID, "I2C3_SDA"),
+                ("14", "I2C3 SCL", BID, "I2C3_SCL")]),
 
     # ── 決策層（下）──────────────────────────────────────
     dict(ref="A2", name="RaspberryPi5", value="Raspberry Pi 5 決策層",
@@ -91,30 +93,38 @@ COMPONENTS = [
          left=[("1", "紅線 +", PAS, "FAN_P"), ("2", "黑線 -", PAS, "FAN_N")],
          right=[]),
 
-    # ── 理香機構與霧化（2026-08-07）────────────────────────
+    # ── 理香機構與霧化（2026-08-07；2026-08-10 改插 I2C3 獨立埠）──
     # ★用 I²C 驅動板而不是 GPIO★ R4 的可用腳（D1/D4 共 4 腳）已全滿，
     #   D2/D3 被 MiniR4.begin() 的 PS2 佔走。而 0.5A 電磁鐵本來就要 MOSFET，
     #   驅動板無論如何都要買——選 I²C 版本同時解掉腳位，增量成本趨近於零。
     #   結構上還更好：互鎖變成「寫出去的位元組至多一個 bit 為 1」，
     #   單一地點可驗證；四支獨立 GPIO 反而可能不小心同時拉高兩支。
-    dict(ref="U6", name="PCF8574-MOSFET", value="I2C 8路 MOSFET 驅動板",
+    # ★為何獨佔 I2C3★ 原設計與 SCD41 併聯 I2C1 需要 Grove 一分二線；
+    #   四個 I²C 埠反正都在 PCA9548A 後面（韌體 ioWrite 已切 CH_PCF=2），
+    #   獨佔一孔省一條分接線、也少一個接觸點。
+    dict(ref="U7", name="PCF8574-MOSFET", value="I2C 8路 MOSFET 驅動板",
          at=(325.12, 100.33), width=45.72,
          left=[("1", "VCC 5V", PWR, "+5V"), ("2", "GND", PWR, "GND"),
-               ("3", "SDA", BID, "I2C1_SDA"), ("4", "SCL", BID, "I2C1_SCL"),
+               ("3", "SDA", BID, "I2C3_SDA"), ("4", "SCL", BID, "I2C3_SCL"),
                ("5", "VIN+ 12V", PWR, "+12V")],
          right=[("6", "OUT1 電磁鐵1", OUT, "MAG1"), ("7", "OUT2 電磁鐵2", OUT, "MAG2"),
                 ("8", "OUT3 電磁鐵3", OUT, "MAG3"), ("9", "OUT4 電磁鐵4", OUT, "MAG4"),
                 ("10", "OUT5 霧化", OUT, "MIST"), ("11", "OUT6 罩內LED", OUT, "HOODLED")]),
 
     dict(ref="K1", name="Solenoid-Array", value="電磁鐵 ×4（理香，脈衝驅動）",
-         at=(400.05, 95.25), width=30.48,
+         at=(398.78, 95.25), width=30.48,
          left=[("1", "MAG1", IN, "MAG1"), ("2", "MAG2", IN, "MAG2"),
                ("3", "MAG3", IN, "MAG3"), ("4", "MAG4", IN, "MAG4")],
          right=[]),
 
     dict(ref="M2", name="Mist-Ultrasonic", value="超音波霧化模組 12V（冷霧，無明火）",
-         at=(400.05, 121.92), width=30.48,
+         at=(398.78, 121.92), width=30.48,
          left=[("1", "MIST", IN, "MIST"), ("2", "GND", PWR, "GND")],
+         right=[]),
+
+    dict(ref="LED1", name="Hood-LED", value="罩內 LED 側光 12V",
+         at=(400.05, 160.02), width=25.40,
+         left=[("1", "HOODLED", IN, "HOODLED"), ("2", "GND", PWR, "GND")],
          right=[]),
 
     # ── 電源（左下）：一顆 12V 同時餵控制器與風扇，共地自動成立 ──
@@ -143,4 +153,12 @@ CH = dict(
     tc_kn    = 372.11,
     fan_p    = 367.03,   # D4184 → 風扇
     fan_n    = 372.11,
+    i2c3_sda = 222.25,   # 控制器 → PCF8574 致動板
+    i2c3_scl = 227.33,
+    mag1     = 353.06,   # PCF8574 → 電磁鐵陣列
+    mag2     = 356.87,
+    mag3     = 360.68,
+    mag4     = 364.49,
+    mist     = 368.30,   # PCF8574 → 霧化模組
+    hoodled  = 375.92,   # PCF8574 → 罩內 LED
 )

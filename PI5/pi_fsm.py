@@ -28,7 +28,7 @@ import paho.mqtt.client as mqtt
 # ====== 依環境修改 ======
 MQTT_HOST   = "localhost"
 TOPIC       = "incense/sensor"
-SERIAL_PORT = "/dev/ttyACM0"      # 控制器；用 ls /dev/ttyACM* 確認
+SERIAL_PORT = "/dev/r4"           # udev 固定名（99-r4.rules），重列舉不再跳 ACM0/ACM1
 BAUD        = 115200
 
 # 感測資料來源：MATRIX Mini R4 一條序列同時送感測值與安全狀態，
