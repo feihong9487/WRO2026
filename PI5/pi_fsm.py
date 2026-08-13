@@ -113,7 +113,7 @@ def serial_reader(ser, client):
             # 只挑感測欄位轉發，維持雲端沿用的 payload 結構
             sensor = {k: d[k] for k in
                       ("ts", "co2", "slope", "t_scd", "rh_scd",
-                       "t_sht", "rh_sht", "conf", "alarm") if k in d}
+                       "t_sht", "rh_sht", "t_ds", "conf", "alarm") if k in d}
             client.publish(TOPIC, json.dumps(sensor, ensure_ascii=False))
         except Exception:
             time.sleep(0.5)

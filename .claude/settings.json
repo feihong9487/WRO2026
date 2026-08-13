@@ -18,6 +18,21 @@
     "hooks 以你的使用者權限執行，等同可執行程式碼；新增前務必讀懂內容。",
     "JSON 不支援註解，故以底線欄位承載說明，正式使用可刪除。"
   ],
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash(python run_tests.py)",
+      "Bash(python run_tests.py *)",
+      "Bash(python3 run_tests.py)",
+      "Bash(python3 run_tests.py *)",
+      "Bash(python R4/matrix_mini_r4/驗證韌體.py)",
+      "Bash(python3 R4/matrix_mini_r4/驗證韌體.py)",
+      "Bash(python PI5/驗證資料流.py)",
+      "Bash(python3 PI5/驗證資料流.py)",
+      "Bash(python 外觀CAD/驗證CAD.py)",
+      "Bash(python3 外觀CAD/驗證CAD.py)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {

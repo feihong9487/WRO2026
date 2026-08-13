@@ -37,6 +37,9 @@
  *     MAX6675 SO   → D4 埠右（腳 10）
  *     MAX6675 CS   → D1 埠右（腳 2）
  *     風扇 PWM     → D1 埠左（腳 3，支援 PWM）→ D4184 TRIG
+ *     DS18B20      → A2 埠（OneWire 走左腳 A3；函式庫 MXOnewireDT 用埠的左腳）
+ *                    ★不能插 D1★ D1 左=風扇 PWM、右=MAX6675 CS，OneWire 會
+ *                    反覆翻轉 pinMode，跟兩者都互斥；A1/A2 是僅存的空埠。
  *     Pi           → USB-C（供電兼序列）
  *
  *   電源：12V 2A 同時餵 MATRIX 電源輸入（板子吃 6-24V）與 D4184 VIN，
@@ -156,6 +159,8 @@ MAX6675        tc(PIN_TC_SCK, PIN_TC_CS, PIN_TC_SO);
 // 感測值
 uint16_t co2   = 0;
 float    tScd = NAN, rhScd = NAN, tSht = NAN, rhSht = NAN;
+float    tDs  = NAN;            // DS18B20（A2 埠）
+bool     dsOk = false;
 float    slopePpmMin = 0.0f;
 float    conf        = 0.5f;
 bool     scdOk = false, shtOk = false;
@@ -478,7 +483,10 @@ void updateDisplay()
     MiniR4.OLED.print(F("T "));
     if (tcFault) MiniR4.OLED.print(F("--"));
     else         MiniR4.OLED.print(tempC, 1);
-    MiniR4.OLED.print(F("C  FAN "));
+    MiniR4.OLED.print(F(" D"));               // DS18B20（A2 埠）
+    if (dsOk) MiniR4.OLED.print(tDs, 1);
+    else      MiniR4.OLED.print(F("--"));
+    MiniR4.OLED.print(F(" F"));
     MiniR4.OLED.print(outDuty);
     MiniR4.OLED.display();
 
@@ -524,6 +532,10 @@ void setup()
     Serial.print(scdOk ? F("OK") : F("FAIL"));
     Serial.print(F("  SHT31:"));
     Serial.println(shtOk ? F("OK") : F("FAIL"));
+
+    // DS18B20：先發起第一輪轉換，第一個心跳（≥1s 後）才收——
+    // 否則第一筆會讀到上電預設的 85°C（函式庫會跳過，回傳 0.0 的初始緩衝）
+    MiniR4.A2.MXOnewireDT.requestTemp();
 
     delay(500);                      // MAX6675 上電穩定
     lastTick = lastScdPoll = millis();
@@ -585,6 +597,14 @@ void loop()
     if (millis() - lastTick >= TICK_MS) {
         lastTick = millis();
 
+        // DS18B20（A2 埠，1 Hz 非同步）：這輪收「上一輪發起的轉換」，再發起下一輪。
+        // 轉換要 ~750ms（12-bit），跟 1 Hz 心跳剛好錯開一拍；不用
+        // requestAndGetTemp()（發起後 delay(1) 就讀，拿到的其實是舊值且丟失成敗資訊）。
+        // 每次交易 ~10ms bit-bang，放在 1 Hz 這裡而不是每圈 loop 都打。
+        dsOk = MiniR4.A2.MXOnewireDT.readTemp();
+        if (dsOk) tDs = MiniR4.A2.MXOnewireDT.getTemp();
+        MiniR4.A2.MXOnewireDT.requestTemp();
+
         // 一行 JSON 同時涵蓋「感測值」與「安全狀態」，Pi 據此跑主 FSM。
         // 欄位名稱刻意與原 sensor / decision 主題一致，雲端儀表板不必改。
         //
@@ -601,6 +621,7 @@ void loop()
         Serial.print(F(",\"rh_scd\":"));        Serial.print(j(rhScd), 1);
         Serial.print(F(",\"t_sht\":"));         Serial.print(j(tSht), 2);
         Serial.print(F(",\"rh_sht\":"));        Serial.print(j(rhSht), 1);
+        Serial.print(F(",\"t_ds\":"));          Serial.print(dsOk ? j(tDs) : -99.9f, 2);
         Serial.print(F(",\"conf\":"));          Serial.print(conf, 1);
         Serial.print(F(",\"alarm\":"));         Serial.print(co2Alarm ? 1 : 0);
         Serial.print(F(",\"t_furnace\":"));      Serial.print(tcFault ? -99.9f : j(tempC), 2);

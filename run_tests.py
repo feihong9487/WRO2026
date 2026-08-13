@@ -36,6 +36,15 @@ from pathlib import Path
 #   測試執行器讀到過期的參數，比測試失敗更危險。
 sys.dont_write_bytecode = True
 
+# ★Windows 主控台預設 cp950★：測試說明裡的 '・'(U+30FB) 等字元會讓 print
+#   直接丟 UnicodeEncodeError，導致自檢「假失敗」（測試其實全過）。
+#   統一把輸出串流轉 UTF-8，只動 I/O 編碼，不碰任何斷言或安全常數。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 ROOT = Path(__file__).parent
 SKIP_DIRS = {".git", "__pycache__", ".claude", "node_modules"}
 

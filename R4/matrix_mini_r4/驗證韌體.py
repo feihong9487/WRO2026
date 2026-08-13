@@ -21,6 +21,14 @@ import re
 import sys
 from pathlib import Path
 
+# ★Windows 主控台預設 cp950★：ℹ(U+2139) 等符號會讓 print 直接
+#   UnicodeEncodeError，驗證「假失敗」。只動 I/O 編碼，不碰檢查邏輯。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8")
+    except (AttributeError, ValueError):
+        pass
+
 HERE = Path(__file__).parent
 INO = HERE / "matrix_mini_r4.ino"
 PI_FSM = HERE.parent.parent / "PI5" / "pi_fsm.py"
