@@ -97,6 +97,8 @@ episode = 0
 obs = env.reset(seed=20_000)
 x = obs_np(env, obs)
 ep_ret, ep_rets = 0.0, []
+td_hist = []                      # (step, mean|TD|) 供損失變化圖
+_td_acc, _td_n = 0.0, 0
 
 for step in range(TOTAL):
     eps = max(EPS1, EPS0 - (EPS0 - EPS1) * step / EPS_DECAY_STEPS)
@@ -122,7 +124,13 @@ for step in range(TOTAL):
         q_next = target.forward(S2[idx])[2].max(axis=1)
         y = R[idx] + GAMMA * (1 - D[idx]) * q_next
         q = net.forward(S[idx])[2][np.arange(BATCH), A[idx]]
-        opt.step(net.params(), net.grads(S[idx], A[idx], q - y))
+        td = q - y
+        _td_acc += float(np.mean(np.abs(td)))
+        _td_n += 1
+        if _td_n >= 250:
+            td_hist.append([step, _td_acc / _td_n])
+            _td_acc, _td_n = 0.0, 0
+        opt.step(net.params(), net.grads(S[idx], A[idx], td))
     if step % TARGET_SYNC == 0:
         target.copy_from(net)
     if step % 25_000 == 0 and ep_rets:
@@ -142,4 +150,9 @@ with open(out, "w", encoding="utf-8") as f:
                              round(float(np.mean(ep_rets[-5:])), 2),
                          "data": "★模擬環境（域隨機化）訓練，非實測★"}},
               f, ensure_ascii=False)
+with open(os.path.join(HERE, "models", "dqnC_history.json"), "w",
+          encoding="utf-8") as f:
+    json.dump({"episode_returns": ep_rets, "td_history": td_hist,
+               "note": "★模擬環境訓練歷程；各回合物理配置不同（域隨機化），"
+                       "回報跨回合震盪屬預期★"}, f, ensure_ascii=False)
 print(f"episodes={episode}  saved {out}")

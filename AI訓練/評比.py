@@ -71,6 +71,14 @@ for name, mk in CONTENDERS:
           f"日能耗={avg['wh']:.2f}Wh  無電={avg['dead_h']:.1f}h/日  "
           f"超標={avg['over_pct']:.1f}%")
 
+import json, os                                        # noqa: E402
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                       "models", "評比結果.json"), "w", encoding="utf-8") as f:
+    json.dump({"seeds": SEEDS, "days": DAYS,
+               "results": {k: v for k, v in results.items()},
+               "note": "★凍結協定輸出；全部為模擬值★"},
+              f, ensure_ascii=False, indent=1)
+
 print("\n── 配對判贏（vs 日曆規則★，n=10、勝 ≥8 才算贏）──")
 base = results["日曆規則★"]
 for name in ("A 線性CEM", "B 預測+DP", "C DQN", "實機 FSM", "PID"):

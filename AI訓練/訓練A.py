@@ -47,8 +47,11 @@ def rollout(theta, seed):
 rng = np.random.default_rng(42)
 mean = np.zeros(N_PARAM)
 std = np.ones(N_PARAM)
-best_theta, best_score = None, -1e18
 
+# 注意：各代 seed（＝物理配置）不同，難度差異大，原始分數跨代不可比——
+# 所以★不能挑跨代最高分的候選★（那是挑到最簡單的那一代），
+# 產物取 CEM 收斂後的分布中心 mean。
+history = []
 for it in range(ITERS):
     seeds = [3000 + it * EPS_PER + k for k in range(EPS_PER)]
     cands = mean + std * rng.standard_normal((POP, N_PARAM))
@@ -57,11 +60,13 @@ for it in range(ITERS):
     elite = cands[np.argsort(scores)[-ELITE:]]
     mean = 0.7 * elite.mean(axis=0) + 0.3 * mean
     std = 0.7 * elite.std(axis=0) + 0.3 * std + 0.02
-    if scores.max() > best_score:
-        best_score = float(scores.max())
-        best_theta = cands[int(np.argmax(scores))].copy()
+    history.append([it + 1, float(scores.max()), float(scores.mean())])
     print(f"iter {it + 1:2d}/{ITERS}  best={scores.max():.2f} "
-          f"mean={scores.mean():.2f}")
+          f"mean={scores.mean():.2f}", flush=True)
+
+best_theta = mean
+best_score = float(np.mean([rollout(mean, s) for s in (3100, 3101, 3102)]))
+print(f"final mean policy 3-seed score = {best_score:.2f}")
 
 os.makedirs(os.path.join(HERE, "models"), exist_ok=True)
 out = os.path.join(HERE, "models", "linearA.json")
@@ -71,4 +76,10 @@ final["train"] = {"algo": "CEM", "iters": ITERS, "pop": POP,
                   "data": "★模擬環境（域隨機化）訓練，非實測★"}
 with open(out, "w", encoding="utf-8") as f:
     json.dump(final, f, ensure_ascii=False, indent=1)
+with open(os.path.join(HERE, "models", "cemA_history.json"), "w",
+          encoding="utf-8") as f:
+    json.dump({"iters": history,
+               "note": "★各代 seed（物理配置）不同，分數跨代不可比，"
+                       "曲線只看代內 best/mean 差距收斂★"},
+              f, ensure_ascii=False)
 print("saved", out)
