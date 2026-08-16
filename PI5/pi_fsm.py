@@ -55,6 +55,97 @@ IDLE_HOLD_S    = 60
 SENSOR_STALE_S = 10      # 感測資料多久沒更新視為失聯
 DUTY = {"S0": 0, "S1": 70, "S2": 220, "S3": 0}   # 0-255
 
+# ════════ AI 影子模式（2026-08-16 新增）═══════════════════
+# B 案（日曆負載預測＋電量預算 DP 排程）的★影子部署★：
+#   只計算「AI 會建議什麼 duty」寫進決策紀錄（ai_duty 欄位）與上雲，
+#   ★完全不影響送往 R4 的實際 duty★——先累積實機對比資料，
+#   致動切換是之後由人拍板的另一步。
+# 模型檔：與本檔同目錄之 ai_predictor.json（AI訓練/models/predictorB.json
+# 的複本）。檔案不存在 → 影子模式自動停用（ai_duty=None）。
+# 簡化註記：效益函數以 duty/255 線性近似捕集率（完整煙羽模型在
+# AI訓練/plume.py；影子排序用線性近似已足夠，且 Pi 端零相依）。
+import math as _math
+import os as _os
+
+AI_ACTIONS = (0, 70, 220, 255)
+AI_BUDGET_WH = 4.0          # 與訓練情境一致（D40；耗盡假設見 AI訓練/README）
+AI_FAN_P_MAX = 1.0          # SUNON 4020 家族典型（EST）
+
+
+class ShadowAdvisor:
+    _SYN = 29.530588
+    _EPOCH = 947182440.0    # 2000-01-06 18:14 UTC（朔）近似
+
+    def __init__(self, path):
+        self.w = None
+        try:
+            with open(path, encoding="utf-8") as f:
+                self.w = json.load(f)["w"]
+        except Exception:
+            return                       # 無模型 → 停用
+        self._sched, self._slot = None, -1
+        self._spent_wh, self._spent_day = 0.0, None
+
+    @staticmethod
+    def _feats(hour, ld, dow, is_open):
+        morning = _math.exp(-((hour - 8.0) ** 2) / 8.0)
+        evening = _math.exp(-((hour - 17.0) ** 2) / 12.5)
+        lp = 1.0 if (ld < 1.0 or 14.0 <= ld < 15.5) else 0.0
+        we = 1.0 if dow >= 5 else 0.0
+        return [1.0, _math.sin(2 * _math.pi * hour / 24.0),
+                _math.cos(2 * _math.pi * hour / 24.0),
+                morning, evening, lp, we, is_open,
+                is_open * morning * lp, is_open * evening * lp,
+                is_open * we, is_open * lp]
+
+    def _load_hat(self, hour, ld, dow):
+        is_open = 1.0 if 6 <= hour < 21 else 0.0
+        f = self._feats(hour, ld, dow, is_open)
+        return max(0.0, sum(a * b for a, b in zip(self.w, f)))
+
+    def suggest(self, co2, now):
+        if self.w is None:
+            return None
+        if self._spent_day != now.date():
+            self._spent_day, self._spent_wh = now.date(), 0.0
+        ld = ((now.timestamp() - self._EPOCH) / 86400.0) % self._SYN
+        dow = now.weekday()
+        hour = now.hour
+        slot = (now.hour * 2) + (1 if now.minute >= 30 else 0)
+        if self._sched is None or slot != self._slot:
+            budget = max(0.0, AI_BUDGET_WH - self._spent_wh)
+            nb = int(budget / 0.05) + 1
+            dp = [(0.0, [])] * nb
+            for h in range(23, hour - 1, -1):
+                nhat = self._load_hat(h, ld, dow)
+                if h == hour and co2:            # nowcast 混入當前時段
+                    nhat = max(nhat, (co2 - 480.0) / 26.0)
+                if nhat < 0.3:
+                    nhat = 0.0           # 微弱預測視為無負載（防雜訊倒預算）
+                opts = [(d, int(round(AI_FAN_P_MAX * (d / 255.0) ** 3 / 0.05)),
+                         (d / 255.0) * nhat) for d in AI_ACTIONS]
+                ndp = [None] * nb
+                for b in range(nb):
+                    best = (-1.0, 0, [])
+                    for d, c, ben in opts:
+                        if c <= b:
+                            v, ch = dp[b - c]
+                            if ben + v > best[0]:
+                                best = (ben + v, d, ch)
+                    ndp[b] = (best[0], [best[1]] + best[2])
+                dp = ndp
+            self._sched = {h: d for h, d in
+                           zip(range(hour, 24), dp[nb - 1][1])}
+            self._slot = slot
+        d = self._sched.get(hour, 0)
+        self._spent_wh += AI_FAN_P_MAX * (d / 255.0) ** 3 / 3600.0
+        return d
+
+
+_advisor = ShadowAdvisor(_os.path.join(_os.path.dirname(
+    _os.path.abspath(__file__)), "ai_predictor.json"))
+# ═════════════════════════════════════════════════════════
+
 # ── CO2 背景基線（與 R4 韌體同一套演算法）──────────────────
 _buckets: list = [None] * BASELINE_WINDOW_MIN
 _bucket_idx = 0
@@ -191,6 +282,12 @@ def main():
         except Exception:
             action = (action + " SERIAL_ERR").strip()
 
+        # AI 影子建議（只記錄、絕不影響上面已送出的實際 duty）
+        try:
+            ai_duty = _advisor.suggest(co2, datetime.now())
+        except Exception:
+            ai_duty = None
+
         rec = {
             "ts": datetime.now().isoformat(timespec="seconds"),
             "co2": co2,
@@ -205,14 +302,16 @@ def main():
             "interlock": rs.get("interlock"),
             "state": state,
             "fan_duty": duty,
+            "ai_duty": ai_duty,          # 影子模式：AI 的建議值（未致動）
             "action": action,
         }
         logf.write(json.dumps(rec, ensure_ascii=False) + "\n")
         client.publish("incense/decision", json.dumps(rec, ensure_ascii=False))
 
+        ai_txt = f" AI影子={ai_duty}" if ai_duty is not None else ""
         print(f"[{state}] CO2={co2:4d}ppm 斜率={slope:+7.1f}/min "
               f"爐溫={rs.get('t_furnace', '--')}°C fan={duty:3d} "
-              f"R4={rs.get('mode', '?')} {action}")
+              f"R4={rs.get('mode', '?')}{ai_txt} {action}")
 
 
 if __name__ == "__main__":
