@@ -54,8 +54,8 @@ it = [r[0] for r in a["iters"]]
 ax.plot(it, [-r[2] for r in a["iters"]], "o-", color=GOLD, label="族群平均損失")
 ax.plot(it, [-r[1] for r in a["iters"]], "s-", color=RED, label="族群最佳損失")
 ax.set_xlabel("CEM 代數")
-ax.set_ylabel("固定配置集 4 回合平均損失")
-ax.set_title("方案 A v2｜CEM 訓練損失變化\n（固定配置集評分——跨代可比，F35 根治版）★模擬★")
+ax.set_ylabel("固定配置集平均損失")
+ax.set_title("方案 A v3｜CEM 訓練損失變化\n（固定配置集＋種子注入：測試能否逃出常數 70 局部最優）★模擬★")
 ax.legend(); ax.grid(alpha=0.3)
 save(fig, "A_損失變化圖.png")
 
@@ -77,54 +77,46 @@ ax2.set_xticks(range(len(lams)), [f"λ={k}" for k in lams])
 ax2.set_ylabel("驗證 MAE（支）")
 ax2.set_title(f"λ 掃描（選 λ={b['chosen_lambda']}）")
 ax2.grid(axis="y", alpha=0.3)
-fig.suptitle("方案 B v2｜負載預測器損失變化（★合成資料★）", y=1.03)
+fig.suptitle("方案 B v3｜負載預測器損失變化（預測器同 v2；v3 改排程器）（★合成資料★）", y=1.03)
 save(fig, "B_損失變化圖.png")
 
-# C：回合損失＋TD 誤差
-c = load("dqnC_history.json")
-fig, ax = plt.subplots(figsize=(7.5, 4.2))
-ep = c["episode_returns"]
-ax.bar(range(1, len(ep) + 1), [-r for r in ep], color=BLUE, alpha=0.55,
-       label="各回合損失（域隨機化，難度不一）")
-ax.set_yscale("log")
-ax.set_xlabel("訓練回合（1 回合＝1 模擬日）")
-ax.set_ylabel("回合總損失（log）")
-ax2 = ax.twinx()
-td = c["td_history"]
-ax2.plot([t[0] / 1000 for t in td], [t[1] for t in td], color=RED, lw=1.3,
-         label="TD 誤差（右軸，千步）")
-ax2.set_ylabel("平均 |TD 誤差|", color=RED)
-ax2.tick_params(axis="y", labelcolor=RED)
-h1, l1 = ax.get_legend_handles_labels()
-h2, l2 = ax2.get_legend_handles_labels()
-ax.legend(h1 + h2, l1 + l2, fontsize=9)
-ax.set_title("方案 C v2｜n-step Double DQN 訓練損失變化 ★模擬★")
+# C：v3 改為 CEM-MLP → 曲線同 A 形式（固定配置集，跨代可比）
+c = load("cemC_history.json")
+fig, ax = plt.subplots(figsize=(7, 4.2))
+itc = [r[0] for r in c["iters"]]
+ax.plot(itc, [-r[2] for r in c["iters"]], "o-", color=GOLD, label="族群平均損失")
+ax.plot(itc, [-r[1] for r in c["iters"]], "s-", color=BLUE, label="族群最佳損失")
+ax.set_xlabel("CEM 代數")
+ax.set_ylabel("固定配置集平均損失")
+ax.set_title("方案 C v3｜CEM-MLP 訓練損失變化\n（演化取代 DQN：整回合報酬直接優化，無 bootstrap）★模擬★")
+ax.legend(); ax.grid(alpha=0.3)
 save(fig, "C_損失變化圖.png")
 
-# ═══ 2. 損失比較圖（v1 vs v2，對日曆規則配對）═══════════
-r_new = load("評比結果.json")["results"]
-r_old = load("評比結果_v1.json")["results"]
-NAME = {"A": "A 線性CEM", "B": "B 預測+DP", "C": "C DQN"}
-for key, nm in NAME.items():
-    base_n = r_new["日曆規則★"]
-    base_o = r_old["日曆規則★"]
-    d_new = [p["loss"] - b_["loss"] for p, b_ in zip(r_new[nm], base_n)]
-    d_old = [p["loss"] - b_["loss"] for p, b_ in zip(r_old[nm], base_o)]
-    w_new = sum(1 for x in d_new if x < 0)
-    w_old = sum(1 for x in d_old if x < 0)
-    xs = np.arange(len(d_new))
-    fig, ax = plt.subplots(figsize=(9, 4.2))
-    ax.bar(xs - 0.2, d_old, 0.38, color=GREY,
-           label=f"v1 優化前（勝 {w_old}/10，平均Δ={np.mean(d_old):+,.0f}）")
-    ax.bar(xs + 0.2, d_new, 0.38, color=RED,
-           label=f"v2 優化後（勝 {w_new}/10，平均Δ={np.mean(d_new):+,.0f}）")
+# ═══ 2. 損失比較圖（v1/v2/v3 三代，對日曆規則配對）═══════
+r3 = load("評比結果.json")["results"]
+r2 = load("評比結果_v2.json")["results"]
+r1 = load("評比結果_v1.json")["results"]
+# C 在 v1/v2 的名稱是「C DQN」，v3 起為「C 小型MLP」
+NAME = {"A": ("A 線性CEM",) * 3,
+        "B": ("B 預測+DP",) * 3,
+        "C": ("C DQN", "C DQN", "C 小型MLP")}
+SER = [("v1", GREY, r1), ("v2", GOLD, r2), ("v3", RED, r3)]
+for key, nms in NAME.items():
+    xs = np.arange(10)
+    fig, ax = plt.subplots(figsize=(9.5, 4.2))
+    for si, ((tag, col, rr), nm) in enumerate(zip(SER, nms)):
+        base = rr["日曆規則★"]
+        d = [p["loss"] - b_["loss"] for p, b_ in zip(rr[nm], base)]
+        w = sum(1 for x in d if x < 0)
+        ax.bar(xs + (si - 1) * 0.27, d, 0.25, color=col,
+               label=f"{tag}（勝 {w}/10，平均Δ={np.mean(d):+,.0f}）")
     ax.axhline(0, color=INK, lw=1)
     ax.set_xticks(xs, [str(s) for s in load("評比結果.json")["seeds"]],
                   fontsize=8)
     ax.set_xlabel("驗證 seed（凍結協定 1001–1010）")
     ax.set_ylabel("配對 Δ日損失 vs 日曆規則★（負＝更好）")
-    ax.set_title(f"方案 {key}｜凍結評比配對比較：優化前後 ★模擬值★")
-    ax.legend(); ax.grid(axis="y", alpha=0.3)
+    ax.set_title(f"方案 {key}｜凍結評比配對比較：v1→v2→v3 ★模擬值★")
+    ax.legend(fontsize=9); ax.grid(axis="y", alpha=0.3)
     save(fig, f"{key}_損失比較圖.png")
 
 # ═══ 3. 混淆矩陣 ═════════════════════════════════════════
@@ -192,7 +184,7 @@ for ci in range(10):
             errs.append(abs(pred - truth))
 accB = 100.0 * np.trace(cmB) / cmB.sum()
 draw_cm(cmB, [b_[2] for b_ in BINS],
-        f"方案 B v2｜負載預測混淆矩陣（保留集 10 配置×20 天）\n"
+        f"方案 B v3｜負載預測混淆矩陣（保留集 10 配置×20 天）\n"
         f"分級準確率 {accB:.1f}%｜MAE {np.mean(errs):.2f} 支｜★合成資料★",
         "B_混淆矩陣.png", "預測負載等級", "實際負載等級（模擬真值）")
 
@@ -220,11 +212,11 @@ def action_cm(mk_policy):
 
 
 for key, mk in (("A", lambda: LinearPolicy("linearA.json")),
-                ("C", lambda: MLPPolicy("dqnC.json"))):
+                ("C", lambda: MLPPolicy("mlpC.json"))):
     cm = action_cm(mk)
     agree = 100.0 * np.trace(cm) / cm.sum()
     draw_cm(cm, ALBL,
-            f"方案 {key} v2｜動作混淆矩陣（3 驗證 seed × 1 天）\n"
+            f"方案 {key} v3｜動作混淆矩陣（3 驗證 seed × 1 天）\n"
             f"對照『事後全知規則』（有香且有電→220，否則→0）"
             f"｜一致率 {agree:.1f}%｜★模擬★",
             f"{key}_混淆矩陣.png",

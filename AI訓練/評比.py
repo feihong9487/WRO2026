@@ -58,7 +58,8 @@ CONTENDERS = [
     ("日曆規則★",   CalendarRule),          # 強基線（判贏對照）
     ("A 線性CEM",   lambda: LinearPolicy("linearA.json")),
     ("B 預測+DP",   lambda: PredictSchedule("predictorB.json")),
-    ("C DQN",       lambda: MLPPolicy("dqnC.json")),
+    # v3 起 C 改為演化訓練之小型 MLP（DQN v1/v2 產物保留於 dqnC_v*.json）
+    ("C 小型MLP",   lambda: MLPPolicy("mlpC.json")),
 ]
 
 results = {}
@@ -81,7 +82,7 @@ with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 print("\n── 配對判贏（vs 日曆規則★，n=10、勝 ≥8 才算贏）──")
 base = results["日曆規則★"]
-for name in ("A 線性CEM", "B 預測+DP", "C DQN", "實機 FSM", "PID"):
+for name in ("A 線性CEM", "B 預測+DP", "C 小型MLP", "實機 FSM", "PID"):
     wins = sum(1 for p, b in zip(results[name], base)
                if p["loss"] < b["loss"])
     avg_d = (sum(p["loss"] for p in results[name])

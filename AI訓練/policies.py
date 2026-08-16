@@ -127,12 +127,17 @@ class PredictSchedule:
     1) ridge 預測今日各小時的同時燃燒香支數 N̂_h（特徵＝純日曆）
     2) DP 解多選背包：在剩餘電量下，把各小時的 duty 檔位配到
        預期捕集量（η(duty,N̂)·N̂）總和最大
-    3) 每逢整點以剩餘電量重解（滾動修正）；CO2 突升（斜率>60 或
-       高於 900 ppm）時就地升一檔（反應層，預測錯的保險絲）
+    3) v3：★CO2 nowcast★——由當前 CO2 高程反推「現在」的香支數
+       （穩態換算：人數≈高程/12、每人在燒支數≈0.46 → N≈高程/26），
+       當前時段取 max(日曆預測, nowcast)，並改為每 30 分鐘滾動重解。
+       取代 v2 的「升一檔」補丁——反應能力進入最佳化本體而非外掛。
     權重 JSON：{"w": [...], "feat_names": [...]}
     """
 
     GRID = 0.05                     # 預算離散格 Wh
+    RESOLVE_S = 1800                # v3：30 分鐘滾動重解
+    NOWCAST_DEADBAND = 60.0         # CO2 高於戶外+60 ppm 才啟動 nowcast
+    NOWCAST_PPM_PER_STICK = 26.0    # ★穩態換算，模擬推導之近似★
 
     def __init__(self, model="predictorB.json", cfg=None):
         d = _load(model) if isinstance(model, str) else model
@@ -142,7 +147,7 @@ class PredictSchedule:
 
     def reset(self):
         self._sched = None
-        self._sched_hour = -1
+        self._sched_slot = -1
 
     # ── 預測 ──
     @staticmethod
@@ -170,6 +175,13 @@ class PredictSchedule:
         f = self.feats(hour, ld, dow, is_open)
         return max(0.0, sum(w * x for w, x in zip(self.w, f)))
 
+    def nowcast(self, obs):
+        """由當前 CO2 高程反推現在的香支數（★近似★）。感測失聯回 0。"""
+        if not obs["co2"]:
+            return 0.0
+        elev = obs["co2"] - self.cfg.CO2_OUT - self.NOWCAST_DEADBAND
+        return max(0.0, elev / self.NOWCAST_PPM_PER_STICK)
+
     # ── 排程（多選背包 DP）──
     def _solve(self, obs, from_hour, budget_wh):
         cfg = self.cfg
@@ -179,6 +191,8 @@ class PredictSchedule:
         dp = [(0.0, [])] * nb
         for h in reversed(hours):
             nhat = self.predict_load(h, obs)
+            if h == from_hour:                    # v3：當前時段混入 nowcast
+                nhat = max(nhat, self.nowcast(obs))
             opts = []
             for d in ACTIONS:
                 cost = int(round(fan_power_w(cfg, d) / self.GRID))
@@ -201,17 +215,10 @@ class PredictSchedule:
     def act(self, obs, t):
         cfg = self.cfg
         hour = int((t % 86400.0) // 3600.0)
-        if self._sched is None or hour != self._sched_hour:
+        slot = int((t % 86400.0) // self.RESOLVE_S)
+        if self._sched is None or slot != self._sched_slot:
             budget = (obs["battery"] * cfg.ENERGY_WH_DAY
                       if cfg.ENERGY_WH_DAY is not None else 24.0)
             self._sched = self._solve(obs, hour, budget)
-            self._sched_hour = hour
-        duty = self._sched.get(hour, 0)
-        # 反應層：CO2 說現在就有人潮，預測沒跟上 → 升一檔。
-        # v2：★預算感知★——電量低於 20% 時不升檔（避免反應層偷吃
-        # DP 排好的預算，重蹈 DQN 提前斷電的覆轍）
-        if (obs["co2"] and (obs["slope"] > 60.0 or obs["co2"] > 900)
-                and obs["battery"] > 0.2):
-            i = ACTIONS.index(duty)
-            duty = ACTIONS[min(i + 1, len(ACTIONS) - 1)]
-        return duty
+            self._sched_slot = slot
+        return self._sched.get(hour, 0)
