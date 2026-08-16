@@ -50,17 +50,21 @@ def make_plant(cfg, seed=1, calm=True):
 # ═══ A. 物理自洽（解析錨點）═══════════════════════════════
 print("A. 物理自洽")
 cfg = SimConfig()
+# 錨點測項用零沉降配置——附錄 C 的 8.7 支反推源強即無沉降假設；
+# 沉降的效果另以 A5 檢驗方向。
+cfg0 = SimConfig()
+cfg0.DEP_RATE_H = 0.0
 
 # A1：無風扇、N=9 穩態遠場 → C_bg + S/Q_nat（附錄 C 自洽性檢查邏輯）
 g_stick = cfg.EF_MG_PER_STICK * 1000.0 / (cfg.BURN_MIN * 60.0)
 q_nat = cfg.ACH * cfg.V_ROOM_M3 / 3600.0
 c9 = cfg.C_BG_PM + 9 * g_stick / q_nat
 c87 = cfg.C_BG_PM + 8.7 * g_stick / q_nat
-p = make_plant(cfg)
+p = make_plant(cfg0)
 p.stick_ends = [float("inf")] * 9
 for i in range(80000):
     p.step(i * 5.0, 5.0, 0, 0)
-check("A1 無風扇遠場穩態＝解析解", abs(p.c_pm - c9) / c9 < 0.03,
+check("A1 無風扇遠場穩態＝解析解（零沉降）", abs(p.c_pm - c9) / c9 < 0.03,
       f"模擬 {p.c_pm:.1f} vs 解析 {c9:.1f} µg/m³（8.7 支解析={c87:.1f}≈97）")
 
 # A2：近場穩態 = 遠場 + S/Q_nx（雙區暴露模型：爐邊高於殿內均值）
@@ -74,12 +78,20 @@ c_eta = cfg.C_BG_PM + (1 - 0.805) * 8.7 * g_stick / q_nat
 check("A3 η=80.5% → 我國標準 35", abs(c_eta - 35.0) < 1.0, f"{c_eta:.1f} µg/m³")
 
 # A4：CO2 穩態＝解析解（30 人、無風扇）
-p2 = make_plant(cfg)
+p2 = make_plant(cfg0)
 for i in range(60000):
     p2.step(i * 5.0, 5.0, 0, 30)
 co2_an = cfg.CO2_OUT + cfg.CO2_PPM_S_PERSON * 30 / (q_nat / cfg.V_ROOM_M3)
 check("A4 CO2 穩態＝解析解", abs(p2.c_co2 - co2_an) / co2_an < 0.02,
       f"模擬 {p2.c_co2:.0f} vs 解析 {co2_an:.0f} ppm")
+
+# A5：文獻沉降項（Thatcher/Lai 0.02–0.55 h⁻¹）使穩態低於零沉降解
+p3 = make_plant(cfg)          # 預設 DEP_RATE_H=0.1
+p3.stick_ends = [float("inf")] * 9
+for i in range(80000):
+    p3.step(i * 5.0, 5.0, 0, 0)
+check("A5 沉降使穩態下降（方向）", cfg.C_BG_PM < p3.c_pm < p.c_pm,
+      f"含沉降 {p3.c_pm:.1f} < 零沉降 {p.c_pm:.1f} µg/m³")
 
 # ═══ B. 煙羽模型（對照日誌第 17 週速度表）══════════════════
 print("B. 煙羽擴散模型")
@@ -274,6 +286,27 @@ for _ in range(5000):
     env.step(70)
 sps = 5000 / (time.time() - t0)
 check("F3 樣本吞吐量 > 1000 步/s", sps > 1000, f"{sps:,.0f} 步/s")
+
+# ═══ H. 資源限制（有限電量情境）═══════════════════════════
+print("H. 資源限制（電量預算）")
+envb = IncenseEnv()
+envb.reset(seed=11)
+check("H1 obs 含 battery 且初始為 1.0",
+      abs(envb._obs()["battery"] - 1.0) < 1e-9)
+envb.battery_wh = 0.0
+envb.plant.c_co2 = 2000.0          # CO2 警報中——但沒電
+_, _, _, info_b = envb.step(255)
+check("H2 電量耗盡 → 風扇物理斷電（警報也吹不動）",
+      info_b["applied_duty"] == 0 and info_b["co2_alarm"])
+envb.t = 86400.0 + 5.0             # 跨過午夜（CO2 警報仍在響，重置後
+envb.step(0)                       # 會立即被強制全速扣掉一步的電量）
+check("H3 午夜重置電量預算",
+      envb.battery_wh > envb.cfg.ENERGY_WH_DAY * 0.95)
+envc = IncenseEnv()
+envc.reset(seed=12)
+b0 = envc.battery_wh
+envc.step(255)
+check("H4 用電扣預算", envc.battery_wh < b0)
 
 # ═══ G. 誠實檢查 ═════════════════════════════════════════
 print("G. 誠實一致性")

@@ -82,7 +82,7 @@ class SensorSuite:
         self._hist = [(tt, v) for tt, v in self._hist if t - tt <= 90.0]
 
         # PM 感測器裝於殿內（遠場）；近場真值策略看不到——跟實機一樣
-        self.pm_reading = max(0.0, vis["c_pm_true"] * cfg.PM_UNDERCOUNT
+        self.pm_reading = max(0.0, vis["c_pm_true"] * cfg.PM_SCALE
                               + rng.gauss(0, cfg.PM_NOISE))
         self.tc_reading = vis["t_stove_true"] + rng.gauss(0, cfg.TC_NOISE_C)
         return dropped
@@ -97,7 +97,8 @@ class SensorSuite:
 
 class IncenseEnv:
     OBS_KEYS = ("co2", "slope", "pm", "t_stove", "duty_prev",
-                "hour_sin", "hour_cos", "lunar_sin", "lunar_cos", "is_open")
+                "hour_sin", "hour_cos", "lunar_sin", "lunar_cos",
+                "dow_sin", "dow_cos", "is_open", "battery")
 
     def __init__(self, cfg: SimConfig = None, randomize=False,
                  episode_days=None, dt=None):
@@ -122,15 +123,27 @@ class IncenseEnv:
         self.plant = IncensePlant(self.cfg, self.rng)
         self.sensors = SensorSuite(self.cfg, self.rng)
         self.people = 0
+        self.battery_wh = (self.cfg.ENERGY_WH_DAY
+                           if self.cfg.ENERGY_WH_DAY is not None
+                           else float("inf"))
+        self._day_idx = 0
         return self._obs()
 
     def step(self, duty):
         cfg = self.cfg
         duty = max(0, min(255, int(duty)))
+        # 電量預算（有限資源情境）：午夜重置，耗盡則風扇物理斷電
+        if int(self.t // 86400) > self._day_idx:
+            self._day_idx = int(self.t // 86400)
+            if cfg.ENERGY_WH_DAY is not None:
+                self.battery_wh = cfg.ENERGY_WH_DAY
         self.people, new_sticks = self.visitors.step(self.t, self.dt)
         if new_sticks:
             self.plant.add_sticks(self.t, new_sticks)
-        st = self.plant.step(self.t, self.dt, duty, self.people)
+        st = self.plant.step(self.t, self.dt, duty, self.people,
+                             power_available=self.battery_wh > 0.0)
+        self.battery_wh = max(0.0, self.battery_wh
+                              - st["power_w"] * self.dt / 3600.0)
         dropped = self.sensors.sample(self.t, st)
 
         # ── 損失（第 15 週定義）──
@@ -165,7 +178,8 @@ class IncenseEnv:
         done = self.t >= self.episode_days * 86400.0
         info = dict(st)
         info.update({"people": self.people, "loss_terms": terms, "g": g,
-                     "c_w": c_w, "sensor_dropped": dropped, "t": self.t})
+                     "c_w": c_w, "sensor_dropped": dropped, "t": self.t,
+                     "battery_wh": self.battery_wh})
         return self._obs(), -loss, done, info
 
     # ── 觀測（策略只准看這個）──────────────────────────
@@ -185,8 +199,21 @@ class IncenseEnv:
             "hour_cos": math.cos(2 * math.pi * hour / 24.0),
             "lunar_sin": math.sin(2 * math.pi * ld / SYNODIC),
             "lunar_cos": math.cos(2 * math.pi * ld / SYNODIC),
+            # 星期（現實中策略當然知道；週末是負載的主因子之一）
+            "dow_sin": math.sin(2 * math.pi * self._dow() / 7.0),
+            "dow_cos": math.cos(2 * math.pi * self._dow() / 7.0),
             "is_open": 1.0 if cfg.OPEN_HOUR <= hour < cfg.CLOSE_HOUR else 0.0,
+            # 電量剩餘比例（有限資源情境的關鍵觀測；市電無限時恆為 1）
+            "battery": (1.0 if cfg.ENERGY_WH_DAY is None else
+                        getattr(self, "battery_wh", cfg.ENERGY_WH_DAY)
+                        / cfg.ENERGY_WH_DAY),
         }
+
+    def _dow(self):
+        """今天星期幾（0=週一），與 VisitorModel 同一來源。"""
+        v = getattr(self, "visitors", None)
+        base = v.start_weekday if v else 0
+        return (base + int(self.t // 86400)) % 7
 
     def obs_vector(self, obs=None):
         """dict → 固定順序 list（餵神經網路用）。"""

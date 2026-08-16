@@ -58,7 +58,7 @@ class IncensePlant:
         return self.u_cross * (3.0 if t < self._gust_until else 1.0)
 
     # ── 物理步進 ───────────────────────────────────────
-    def step(self, t_s, dt, duty, people):
+    def step(self, t_s, dt, duty, people, power_available=True):
         cfg = self.cfg
         n = self.n_burning(t_s)
         u_cross = self._step_cross(t_s, dt)
@@ -74,6 +74,8 @@ class IncensePlant:
             applied = 255                # CO2 硬警報 → 全速（韌體行為）
         if self.interlock:
             applied = 0                  # 聯鎖優先於一切 → 停止致動
+        if not power_available:
+            applied = 0                  # 電量耗盡：警報想吹也吹不動（物理）
 
         # 源強與煙羽捕集
         g_per_stick = cfg.EF_MG_PER_STICK * 1000.0 / (cfg.BURN_MIN * 60.0)
@@ -86,15 +88,18 @@ class IncensePlant:
         q_fan = q_m3s(cfg, applied)
         q_nx = cfg.NEAR_EXCH_M3S * (1.0 + u_cross)    # 橫流越強混合越快
 
-        # 近場：逃逸煙直接進呼吸區，再與遠場交換
+        # 近場：逃逸煙直接進呼吸區，再與遠場交換（含表面沉降）
+        k_dep = cfg.DEP_RATE_H / 3600.0
         escape = (1.0 - eta) * s_ug_s + (1.0 - cfg.FILTER_EFF) * eta * s_ug_s
-        dcn = (escape / v_n + (q_nx / v_n) * (self.c_pm - self.c_near))
+        dcn = (escape / v_n + (q_nx / v_n) * (self.c_pm - self.c_near)
+               - k_dep * self.c_near)
         self.c_near = max(0.0, self.c_near + dcn * dt)
 
-        # 遠場：近場流入＋自然換氣＋風扇順帶濾室內空氣
+        # 遠場：近場流入＋自然換氣＋風扇順帶濾室內空氣＋沉降
         dcf = ((q_nx / v_f) * (self.c_near - self.c_pm)
                + (q_nat / v_f) * (cfg.C_BG_PM - self.c_pm)
-               - (q_fan * cfg.FILTER_EFF / v_f) * self.c_pm)
+               - (q_fan * cfg.FILTER_EFF / v_f) * self.c_pm
+               - k_dep * self.c_pm)
         self.c_pm = max(0.0, self.c_pm + dcf * dt)
 
         captured = eta * s_ug_s * dt + q_fan * cfg.FILTER_EFF * self.c_pm * dt
