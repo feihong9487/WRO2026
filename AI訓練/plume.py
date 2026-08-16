@@ -23,6 +23,8 @@
 """
 import math
 
+from sim_config import q_m3s
+
 
 def w_plume(cfg, z, n):
     """煙羽中心線上升速度 m/s。z 下限取 2 cm 避免奇異點。"""
@@ -77,8 +79,7 @@ def capture(cfg, duty, n, u_cross):
 
     f_geo = _circle_overlap(b, r_h, delta) / (math.pi * b * b)
 
-    q = cfg.Q_MAX_M3H / 3600.0 * (min(255, max(0, duty)) / 255.0)
-    u_face = q / (math.pi * r_h * r_h)
+    u_face = q_m3s(cfg, duty) / (math.pi * r_h * r_h)
     r = u_face / w
     f_vel = 1.0 - math.exp(-cfg.ETA_A * r)
 
@@ -95,7 +96,6 @@ def h_visible(cfg, duty, n):
         return 0.0
     z = cfg.Z_HOOD_M
     w = w_plume(cfg, z, n)
-    q = cfg.Q_MAX_M3H / 3600.0 * (min(255, max(0, duty)) / 255.0)
-    u_face = q / (math.pi * (cfg.HOOD_DIA_M / 2.0) ** 2)
+    u_face = q_m3s(cfg, duty) / (math.pi * (cfg.HOOD_DIA_M / 2.0) ** 2)
     over = max(0.0, u_face / w - 1.0)
     return z / (1.0 + over)

@@ -44,8 +44,17 @@ class SimConfig:
     DOOR_GUSTS_PER_H = 2.0     # 開門陣風事件/h（×3 橫流、持續 60 s）  EST
 
     # ── 風扇與捕集 ─────────────────────────────────────
-    Q_MAX_M3H = 65.0           # duty=255 之風量。所需 43.3（D26），
-                               # 裕度 2.2–5.2 倍（第 20 週 Q1）取下緣   EST
+    # ★2026-08-16 使用者指定★：訓練調控風扇＝建準 SUNON 4020
+    # （40×40×20 mm、DC12V、PWM、磁浮軸承），安裝於★罩口★。
+    # 未指定確切型號檔位（4020 家族多檔轉速）——以下取家族典型中值，
+    # 拿到 datasheet 後回填並收窄 RAND 範圍。
+    FAN_NOTE = "SUNON 4020 12V PWM 磁浮軸承・罩口安裝（型號檔位待定）"
+    Q_MAX_M3H = 12.0           # duty=255 工作點風量。4020 free-air 約
+                               # 10–20 m³/h，裝罩口含阻力後取保守中值；
+                               # ⚠ 遠低於 D26 規格 43.3——已知缺口，
+                               # 見 README「設計張力」                  EST
+    FAN_MIN_DUTY = 26          # 最低啟轉 duty（≈10%；磁浮啟動摩擦低，
+                               # PWM 規格常見 0–20%；低於此風扇不轉）   EST
     HOOD_DIA_M = 0.18          # 漏斗罩口 HOOD_TOP_W=180mm（D32）
     ETA_GEO = 0.90             # 幾何捕集上限（假設）                  EST
     ETA_A = 2.6                # 速度競爭因子係數（假設）              EST
@@ -54,8 +63,9 @@ class SimConfig:
     # ── 文化與噪音約束（D11：硬約束，不入權重）───────────
     H_SPEC_M = 0.18            # 本機保證可見煙柱（D31/D33）
     SPL_MAX_DBA = 45.0         # 噪音上限（附錄 C ⚠ 暫定）             EST
-    SPL_BASE = 25.0            # SPL = SPL_BASE + SPL_GAIN·(duty/255)^0.6
-    SPL_GAIN = 22.0            #   （假設曲線；duty=220 → ≈45 dBA）    EST
+    SPL_BASE = 12.0            # SPL = SPL_BASE + SPL_GAIN·(duty/255)^0.6
+    SPL_GAIN = 18.0            #   4020 磁浮全速約 30 dBA（家族典型；
+                               #   在 45 dBA 上限下有大幅餘裕）        EST
 
     # ── 熱與安全（R4 韌體 matrix_mini_r4.ino 為真相來源）─
     T_AMB = 25.0
@@ -65,8 +75,8 @@ class SimConfig:
     T_RELEASE = 130.0          # 聯鎖解除（韌體 T_RELEASE）
     CO2_ALARM_PPM = 1500       # CO2 硬警報（韌體 CO2_ALARM_PPM）
 
-    # ── 風扇功耗（BOM：5015 12V 0.2A ×2）────────────────
-    FAN_P_MAX_W = 4.8          # P = P_MAX·(duty/255)^3（風扇相似定律）
+    # ── 風扇功耗（SUNON 4020 家族約 0.5–2.5 W）───────────
+    FAN_P_MAX_W = 1.0          # P = P_MAX·(duty/255)^3（風扇相似定律）EST
 
     # ── 感測器模型 ─────────────────────────────────────
     SCD41_PERIOD_S = 5.0       # SCD41 自身 5 s 更新（韌體註解）
@@ -88,7 +98,8 @@ class SimConfig:
     FESTIVAL_P = 0.02          # 任一日為節慶日之機率                  EST
     TOURBUS_PER_DAY = 0.3      # 進香團事件/日（+25 人 / 20 min）      EST
     STAY_MEAN_MIN = 15.0       # 停留時間 lognormal 均值               EST
-    P_PLANT = 0.7              # 插香機率；支數：三炷 60% / 一炷 40%   EST
+    P_PLANT = 0.10             # 於★本爐★插香之比例（多爐分流＋一爐一炷；
+                               # 使尖峰 N 落在日誌缺口表的 9–30 支量級） EST
     START_LUNAR_DAY = 10.0     # 模擬第 0 天的農曆日（0=初一）
 
     # ── 模擬節奏 ───────────────────────────────────────
@@ -124,8 +135,12 @@ class SimConfig:
         "CO2_OUT":        (400.0, 460.0),
         "SENSOR_DELAY_S": (0.0, 15.0),
         "PM_UNDERCOUNT":  (0.5, 1.0),
-        "Q_MAX_M3H":      (50.0, 87.0),
+        "Q_MAX_M3H":      (6.0, 22.0),   # 4020 家族檔位×工作點不確定度
+        "FAN_MIN_DUTY":   (13, 64),      # 最低啟轉 5–25%
+        "FAN_P_MAX_W":    (0.5, 2.5),
+        "SPL_GAIN":       (12.0, 24.0),
         "LAM_BASE_PER_H": (8.0, 45.0),
+        "P_PLANT":        (0.05, 0.30),
     }
     LOG_UNIFORM = {"EF_MG_PER_STICK"}
 
@@ -161,8 +176,16 @@ class SimConfig:
 
 
 # 衍生量（不要在別處重算，避免版本分歧）
+def fan_running(cfg, duty):
+    """低於最低啟轉 duty 風扇不轉（4020 PWM 停轉區）。"""
+    return duty >= cfg.FAN_MIN_DUTY
+
+
 def q_m3s(cfg, duty):
-    return cfg.Q_MAX_M3H / 3600.0 * (max(0, min(255, duty)) / 255.0)
+    duty = max(0, min(255, duty))
+    if not fan_running(cfg, duty):
+        return 0.0
+    return cfg.Q_MAX_M3H / 3600.0 * (duty / 255.0)
 
 
 def hood_area_m2(cfg):
@@ -170,11 +193,13 @@ def hood_area_m2(cfg):
 
 
 def spl_dba(cfg, duty):
-    """噪音（★假設曲線★；duty=220 ≈ 45 dBA 即 S2 貼著上限跑）。"""
-    if duty <= 0:
+    """噪音（★假設曲線★；4020 磁浮全速約 SPL_BASE+SPL_GAIN ≈ 30 dBA）。"""
+    if not fan_running(cfg, duty):
         return 0.0
     return cfg.SPL_BASE + cfg.SPL_GAIN * (duty / 255.0) ** 0.6
 
 
 def fan_power_w(cfg, duty):
+    if not fan_running(cfg, duty):
+        return 0.0
     return cfg.FAN_P_MAX_W * (duty / 255.0) ** 3

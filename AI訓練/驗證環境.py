@@ -110,19 +110,29 @@ uc = cfg.U_CROSS_MEAN
 mono_u = all(plume.capture(cfg, d, 9, uc)[0] <=
              plume.capture(cfg, d + 5, 9, uc)[0] + 1e-12
              for d in range(0, 250, 5))
-mono_n = all(plume.capture(cfg, 220, n, uc)[0] >=
-             plume.capture(cfg, 220, n + 1, uc)[0] - 1e-12
+mono_n = all(plume.capture(cfg, 220, n, 0.0)[0] >=
+             plume.capture(cfg, 220, n + 1, 0.0)[0] - 1e-12
              for n in range(1, 30))
 check("C1 η 隨 duty 單調上升", mono_u)
-check("C2 η 隨 N 單調下降（第 17 週 η(u,N) 方向）", mono_n)
+check("C2 零橫流下 η 隨 N 單調下降（第 17 週動量競爭）", mono_n)
+d1 = plume.capture(cfg, 220, 1, 0.4)[1]["delta_m"]
+d9 = plume.capture(cfg, 220, 9, 0.4)[1]["delta_m"]
+check("C2b 橫流下慢煙羽（小 N）偏移更大（F29 機制）", d1 > d9,
+      f"δ(N=1)={d1*1000:.0f}mm > δ(N=9)={d9*1000:.0f}mm")
 check("C3 η ∈ [0, ETA_GEO]",
       0.0 <= plume.capture(cfg, 255, 1, uc)[0] <= cfg.ETA_GEO + 1e-9)
 check("C4 風量線性：duty=255 → Q_MAX",
       abs(q_m3s(cfg, 255) * 3600 - cfg.Q_MAX_M3H) < 1e-6)
 check("C5 可見煙柱：正常抽排 ≥ h_spec（D33 幾何保證）",
       plume.h_visible(cfg, 220, 9) >= cfg.H_SPEC_M)
-check("C5b 過度抽吸使煙柱變矮（文化約束有作用面）",
-      plume.h_visible(cfg, 255, 1) < plume.h_visible(cfg, 70, 1))
+# 2026-08-16 風扇規格改為 SUNON 4020（罩口）後的政權變更：
+# 最大面風速 < 單支煙羽速度 → 全速也無法過度抽吸，文化約束天然滿足。
+# （舊 5015×2 規格下「過度抽吸縮短煙柱」的作用面已不存在。）
+u_face_max = q_m3s(cfg, 255) / (3.14159265 * (cfg.HOOD_DIA_M / 2) ** 2)
+check("C5b 4020 全速面風速 < w(N=1)：文化約束天然滿足",
+      u_face_max < plume.w_plume(cfg, cfg.Z_HOOD_M, 1)
+      and plume.h_visible(cfg, 255, 1) >= cfg.H_SPEC_M,
+      f"u_face={u_face_max:.2f} < w={plume.w_plume(cfg, cfg.Z_HOOD_M, 1):.2f} m/s")
 
 # ═══ D. 跨層一致（真相來源比對）══════════════════════════
 print("D. 跨層一致性（基線移植 vs 實機程式碼）")
@@ -240,7 +250,12 @@ losses = {d: mean_loss(d) for d in (0, 70, 140, 220, 255)}
 best = min(losses, key=losses.get)
 check("F1 梯度可用性：最佳定速 ≠ 0（F7 的 BFS 死因）", best != 0,
       "，".join(f"{d}:{v:.3f}" for d, v in losses.items()))
-check("F1b 最佳定速 ≠ 255（能耗/噪音有作用）", best != 255)
+# 4020 規格下（噪音/文化約束皆不綁）「有香就全速」是合法邊界解——
+# 檢驗改為損失對 duty 的區辨度（梯度可用的實質條件）；
+# 學習價值轉移到「時間軸排程」：沒香該關、香要來（初一十五）該先開。
+spread = (max(losses.values()) - min(losses.values())) / max(losses.values())
+check("F1b 損失對 duty 有區辨度 >20%（邊界最佳屬 4020 合理結果）",
+      spread > 0.20 and losses[0] > losses[255], f"spread={spread:.0%}")
 
 d = DualAscent(["noise"], alpha=0.5)
 d.update({"noise": 2.0})

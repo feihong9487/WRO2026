@@ -35,6 +35,9 @@ python3 外觀CAD/驗證CAD.py
 # 電控韌體
 python3 R4/matrix_mini_r4/驗證韌體.py
 python3 PI5/驗證資料流.py
+
+# AI 訓練模擬環境
+python3 AI訓練/驗證環境.py
 ```
 
 `run_tests.py` 是純標準函式庫實作。本機系統 Python 受 PEP 668 保護裝不了 pytest，
@@ -54,6 +57,7 @@ python3 PI5/驗證資料流.py
 | 電路 | `電路設計/kicad/佈線定義.py` → 產生器產出 `.kicad_sch` |
 | 韌體常數 | `R4/matrix_mini_r4/matrix_mini_r4.ino` |
 | 雲端儀表板 | `cloud_dash/*.json`（WSL 的 `~/incense-cloud/` 只是工作副本） |
+| AI 模擬環境參數 | `AI訓練/sim_config.py`（★全部為模擬；EST 參數待實測回填★） |
 
 **產生器產出的檔案不要手改**——改來源再重跑產生器，否則下次重跑會被覆蓋。
 
