@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<title>智慧香爐｜三張 A1 直式海報 低保真版型預覽</title>
+<style>
+  :root{
+    --ink:#0b0b0b; --ink2:#52514e; --muted:#898781; --grid:#e1e0d9;
+    --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+    --good:#0ca30c; --warn:#fab219; --bad:#d03b3b;
+    --spice:#7a3b2e; --paper:#ffffff; --plane:#f4f3ef;
+    --px: 0.66;               /* px per mm */
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--plane);color:var(--ink);
+       font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;
+       padding:28px 24px 60px}
+  h1{font-size:22px;margin:0 0 4px;letter-spacing:.02em}
+  .sub{font-size:13px;color:var(--ink2);margin:0 0 20px}
+  .bar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px;
+       font-size:12px;color:var(--ink2)}
+  .bar label{display:flex;gap:5px;align-items:center;cursor:pointer}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);
+          border-top:1px solid var(--grid);border-bottom:1px solid var(--grid);
+          padding:9px 0;margin-bottom:22px}
+  .sw{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;
+      vertical-align:-1px;border:1px solid rgba(0,0,0,.12)}
+
+  .sheet-row{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-start}
+  .col{display:flex;flex-direction:column;align-items:center}
+  .banner{width:calc(594px * var(--px));height:calc(46px * var(--px));
+          background:var(--spice);color:#fff;border-radius:2px;
+          display:flex;align-items:center;justify-content:space-between;
+          padding:0 8px;font-size:8px;letter-spacing:.06em;margin-bottom:6px;opacity:.95}
+  .banner.hide{display:none}
+  .bnote{font-size:9px;color:var(--muted);margin-bottom:4px}
+
+  .poster{position:relative;width:calc(594px * var(--px));height:calc(841px * var(--px));
+          background:var(--paper);box-shadow:0 2px 14px rgba(0,0,0,.13);
+          padding:calc(30px * var(--px));overflow:hidden}
+  .safe{position:absolute;inset:calc(20px * var(--px));border:1px dashed #d8d6cd;
+        pointer-events:none;display:none}
+  .showsafe .safe{display:block}
+  .cols{position:absolute;top:0;bottom:0;left:calc(30px * var(--px));
+        right:calc(30px * var(--px));display:none;gap:calc(12px * var(--px));
+        pointer-events:none}
+  .showgrid .cols{display:flex}
+  .cols div{flex:1;background:rgba(42,120,214,.055);
+            border-left:1px solid rgba(42,120,214,.16);border-right:1px solid rgba(42,120,214,.16)}
+
+  .stack{position:relative;height:100%;display:flex;flex-direction:column}
+
+  /* ---- title band ---- */
+  .tband{height:calc(120px * var(--px));border-bottom:3px solid var(--spice);
+         padding-bottom:5px;display:flex;flex-direction:column;justify-content:flex-end}
+  .nav{display:flex;gap:4px;align-items:center;font-size:8px;color:var(--muted);
+       letter-spacing:.14em;margin-bottom:4px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#dcdad2;display:inline-block}
+  .dot.on{background:var(--spice)}
+  .kicker{font-size:13px;font-weight:700;letter-spacing:.16em;color:var(--spice)}
+  .kicker span{color:var(--ink);letter-spacing:.02em}
+  .claim{font-size:12.5px;line-height:1.35;font-weight:700;margin-top:5px}
+  .claim em{font-style:normal;background:linear-gradient(transparent 62%, #ffe0b8 62%)}
+  .ptsz{font-size:7.5px;color:var(--muted);margin-top:3px}
+
+  /* ---- content modules ---- */
+  .body{flex:1;display:flex;flex-wrap:wrap;gap:calc(12px * var(--px));
+        align-content:flex-start;padding-top:calc(12px * var(--px))}
+  .m{border:1px solid var(--grid);border-radius:2px;padding:5px 6px;
+     display:flex;flex-direction:column;gap:3px;overflow:hidden;background:#fff}
+  .m.w6{width:100%}
+  .m.w3{width:calc((100% - (12px * var(--px))) / 2)}
+  .m h4{margin:0;font-size:9.5px;font-weight:700;line-height:1.25;
+        display:flex;gap:4px;align-items:baseline}
+  .tag{font-size:7px;color:#fff;background:var(--muted);border-radius:2px;
+       padding:0 3px;font-weight:600;flex:none}
+  .tag.star{background:var(--spice)}
+  .m p{margin:0;font-size:7.5px;line-height:1.4;color:var(--ink2)}
+  .meta{margin-top:auto;font-size:6.5px;color:var(--muted);display:flex;
+        justify-content:space-between;gap:6px;padding-top:2px}
+
+  /* fake text lines */
+  .lines{display:flex;flex-direction:column;gap:2.5px;margin-top:1px}
+  .lines i{display:block;height:2.5px;background:#e9e8e2;border-radius:1px}
+  .lines i:last-child{width:62%}
+
+  /* fake charts */
+  .chart{flex:1;min-height:26px;display:flex;align-items:flex-end;gap:3px;
+         border-left:1px solid var(--grid);border-bottom:1px solid var(--grid);
+         padding:2px 2px 0}
+  .chart b{flex:1;display:block;border-radius:1.5px 1.5px 0 0}
+  .lineart{flex:1;min-height:30px;position:relative;border-left:1px solid var(--grid);
+           border-bottom:1px solid var(--grid)}
+  .lineart svg{position:absolute;inset:0;width:100%;height:100%}
+  .hero{display:flex;align-items:baseline;gap:4px}
+  .hero b{font-size:23px;line-height:1;letter-spacing:-.02em}
+  .hero small{font-size:7.5px;color:var(--muted)}
+  .tbl{flex:1;display:grid;gap:1.5px;grid-template-columns:1.6fr 1fr 1fr 1fr;min-height:26px}
+  .tbl s{background:#f2f1ec;border-radius:1px;text-decoration:none;display:block}
+  .tbl s.h{background:#e3e1d8}
+  .photo{flex:1;min-height:34px;background:repeating-linear-gradient(45deg,#f4f3ef,#f4f3ef 5px,#eceae4 5px,#eceae4 10px);
+         border-radius:2px;display:flex;align-items:center;justify-content:center;
+         font-size:7px;color:var(--muted)}
+
+  /* ---- footer ---- */
+  .fband{height:calc(40px * var(--px));border-top:1px solid var(--grid);
+         display:flex;align-items:center;justify-content:space-between;gap:6px;
+         font-size:7px;color:var(--muted);padding-top:4px}
+  .marks{display:flex;gap:5px;font-size:6.5px}
+  .marks u{text-decoration:none;display:flex;gap:2px;align-items:center}
+  .qr{display:flex;gap:3px}
+  .qr s{width:calc(22px * var(--px));height:calc(22px * var(--px));
+        background:repeating-conic-gradient(#3a3a38 0 25%,#fff 0 50%) 0/4px 4px;
+        display:block;border-radius:1px}
+  .cap{font-size:11px;color:var(--ink2);margin-top:10px;text-align:center;line-height:1.5}
+  .cap b{color:var(--ink)}
+  .note{max-width:1180px;font-size:12px;line-height:1.7;color:var(--ink2);margin-top:34px;
+        border-top:1px solid var(--grid);padding-top:16px}
+  .note b{color:var(--ink)}
+</style>
+</head>
+<body>
+
+<h1>智慧香爐｜三張 A1 直式海報 · 低保真版型預覽</h1>
+<p class="sub">WRO 2026 Future Innovators (Senior)．Robots Meet Culture．全繁體中文．594 × 841 mm ×3．比例正確，字級為示意</p>
+
+<div class="bar">
+  <label><input type="checkbox" id="g"> 顯示 6 欄網格</label>
+  <label><input type="checkbox" id="s"> 顯示安全邊界（內縮 20 mm）</label>
+  <label><input type="checkbox" id="b" checked> 顯示立面橫幅（方案 A）</label>
+</div>
+
+<div class="legend">
+  <span><i class="sw" style="background:#2a78d6"></i>系列 1（本系統）</span>
+  <span><i class="sw" style="background:#eb6834"></i>系列 2（對照）</span>
+  <span><i class="sw" style="background:#1baf7a"></i>系列 3</span>
+  <span><i class="sw" style="background:#0ca30c"></i>✓ 實測</span>
+  <span><i class="sw" style="background:#fab219"></i>⚠ 設計目標</span>
+  <span><i class="sw" style="background:#d03b3b"></i>✗ 未達／已推翻</span>
+  <span><i class="sw" style="background:#7a3b2e"></i>深香色（僅標題帶與分隔線，禁用於資料）</span>
+</div>
+
+<div class="sheet-row" id="row">
+
+<!-- ══════════════ P1 ══════════════ -->
+<div class="col">
+  <div class="banner"><span>TEAM NAME · SCHOOL · TAIWAN</span><span>智慧香爐 INTELLIGENT INCENSE CENSER</span><span>WRO 2026 · FI SENIOR</span></div>
+  <div class="bnote">立面 1 橫幅 1900 × 250 mm</div>
+  <div class="poster">
+    <div class="cols"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="safe"></div>
+    <div class="stack">
+      <div class="tband">
+        <div class="nav"><i class="dot on"></i><i class="dot"></i><i class="dot"></i> POSTER 1 OF 3</div>
+        <div class="kicker">SCIENCE　<span>科學｜問題界定與物理路線</span></div>
+        <div class="claim">焚香不是「空氣髒」，而是一個<em>邊界可界定的室內點源</em>——因此它可以被工程解掉。</div>
+        <div class="ptsz">主張句 100 pt／大標 66 pt／標題帶高 120 mm</div>
+      </div>
+
+      <div class="body">
+        <div class="m w6" style="height:calc(48px * var(--px))">
+          <h4><span class="tag">1.1</span>保存的是活的儀式，不是一件文物</h4>
+          <div class="lines"><i></i><i></i><i></i></div>
+          <div class="meta"><span>內文 24 pt · 90 字</span><span>◆ 賽題 Area 1</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(88px * var(--px))">
+          <h4><span class="tag">1.2</span>問題的量級</h4>
+          <div class="hero"><b>97</b><small>µg/m³ 殿內均值<br>標準 35 · WHO 15</small></div>
+          <div class="chart">
+            <b style="height:22%;background:var(--s3)"></b><b style="height:52%;background:var(--s1)"></b><b style="height:96%;background:var(--s2)"></b>
+          </div>
+          <div class="meta"><span>圖 1-1</span><span>◆ Hien 2022</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(88px * var(--px))">
+          <h4><span class="tag">1.3</span>爐位差異 → 三倍濃度差</h4>
+          <p>同樣的香、同樣的行為，室外爐 36.5 vs 室內爐 97.0</p>
+          <div class="chart">
+            <b style="height:38%;background:var(--s3)"></b><b style="height:0"></b><b style="height:98%;background:var(--s1)"></b>
+          </div>
+          <div class="meta"><span>圖 1-2</span><span>◆ 同儕審查</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(76px * var(--px))">
+          <h4><span class="tag">1.4</span>線香更像二手菸，而不像車輛廢氣</h4>
+          <div class="tbl">
+            <s class="h"></s><s class="h"></s><s class="h"></s><s class="h"></s>
+            <s></s><s></s><s></s><s></s><s></s><s></s><s></s><s></s>
+            <s></s><s></s><s></s><s></s><s></s><s></s><s></s><s></s>
+            <s></s><s></s><s></s><s></s>
+          </div>
+          <div class="meta"><span>表 1-3　六維對照</span><span>治理拓撲決定技術路線</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(96px * var(--px))">
+          <h4><span class="tag">1.5</span>傷害集中在少數人</h4>
+          <p>E = C<sub>NF</sub>t<sub>NF</sub> + C<sub>FF</sub>t<sub>FF</sub>　差達兩個數量級</p>
+          <div class="chart">
+            <b style="height:8%;background:var(--s1)"></b><b style="height:38%;background:var(--s1)"></b><b style="height:97%;background:var(--s2)"></b>
+          </div>
+          <div class="meta"><span>圖 1-4（對數軸）</span><span>○ 示範性估算</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(96px * var(--px))">
+          <h4><span class="tag">1.6</span>季風 × 農曆的相位重合</h4>
+          <div class="lineart"><svg viewBox="0 0 100 40" preserveAspectRatio="none">
+            <polyline points="0,30 14,28 28,10 42,26 56,8 70,24 84,6 100,22" fill="none" stroke="#eb6834" stroke-width="1.6"/>
+            <polyline points="0,12 20,15 40,22 60,30 80,33 100,31" fill="none" stroke="#2a78d6" stroke-width="1.6"/>
+          </svg></div>
+          <div class="meta"><span>圖 1-5</span><span>排放最強時，自淨最弱</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(100px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag star">★ 1.7</span>捕集是「接」的問題，不是「吸」的問題</h4>
+          <p>罩前誘導風速隨 x⁻² 衰減：100 mm 處僅 0.13 m/s，是煙羽速度的 1/8 → 煙羽靠自身浮力送到罩口</p>
+          <div class="lineart"><svg viewBox="0 0 100 40" preserveAspectRatio="none">
+            <path d="M2,4 C12,26 24,34 50,37 L100,38.5" fill="none" stroke="#2a78d6" stroke-width="1.8"/>
+            <path d="M2,14 C22,18 50,21 100,24" fill="none" stroke="#eb6834" stroke-width="1.8"/>
+          </svg></div>
+          <div class="meta"><span>圖 1-6　本張主圖</span><span>flow_analysis.py §3</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(60px * var(--px))">
+          <h4><span class="tag">1.8</span>量化目標：η ≈ 80% 可將 97 降至 35</h4>
+          <div class="hero"><b>56.5</b><small>m³/h 系統風量 ⚠ 設計值<br>不到家用清淨機的 1/8</small></div>
+          <div class="meta"><span>圖 1-7</span><span>⚠ 設計目標，非實測</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(40px * var(--px))">
+          <h4><span class="tag">1.9</span>誠實邊界：本研究不宣稱因果，採預防原則</h4>
+          <div class="lines"><i></i><i></i></div>
+          <div class="meta"><span>註腳 16 pt</span><span>文獻 ◆ 1–8</span></div>
+        </div>
+      </div>
+
+      <div class="fband">
+        <span>隊名／學校／指導老師</span>
+        <div class="marks"><u>✓ 實測</u><u>◆ 文獻</u><u style="color:#b07b12">⚠ 設計目標</u><u>○ 估算</u></div>
+        <div class="qr"><s></s><s></s><s></s></div>
+      </div>
+    </div>
+  </div>
+  <div class="cap"><b>P1 · SCIENCE</b><br>Research 15 · Idea/Creativity 20 · Social Impact 10<br>內文 ≈ 720 字／圖表 7 張</div>
+</div>
+
+<!-- ══════════════ P2 ══════════════ -->
+<div class="col">
+  <div class="banner"><span>TEAM NAME · SCHOOL · TAIWAN</span><span>智慧香爐 INTELLIGENT INCENSE CENSER</span><span>WRO 2026 · FI SENIOR</span></div>
+  <div class="bnote">立面 2 橫幅 1900 × 250 mm</div>
+  <div class="poster">
+    <div class="cols"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="safe"></div>
+    <div class="stack">
+      <div class="tband">
+        <div class="nav"><i class="dot"></i><i class="dot on"></i><i class="dot"></i> POSTER 2 OF 3</div>
+        <div class="kicker">ENGINEERING　<span>工程｜系統實作與驗證</span></div>
+        <div class="claim">捕集是「<em>接</em>」的問題，不是「吸」的問題——所以我們先改罩體幾何，才改控制演算法。</div>
+        <div class="ptsz">主張句 100 pt／大標 66 pt／標題帶高 120 mm</div>
+      </div>
+
+      <div class="body">
+        <div class="m w6" style="height:calc(108px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag">2.1</span>兩板架構：決策與安全物理隔離</h4>
+          <div class="lineart" style="border:0;min-height:52px"><svg viewBox="0 0 200 62" preserveAspectRatio="none">
+            <rect x="4" y="6" width="52" height="20" rx="2" fill="#fff" stroke="#2a78d6" stroke-width="1.4"/>
+            <rect x="74" y="6" width="52" height="20" rx="2" fill="#fff" stroke="#2a78d6" stroke-width="1.4"/>
+            <rect x="144" y="6" width="52" height="20" rx="2" fill="#fff" stroke="#1baf7a" stroke-width="1.4"/>
+            <rect x="74" y="38" width="52" height="20" rx="2" fill="#fff" stroke="#eb6834" stroke-width="1.4"/>
+            <rect x="144" y="38" width="52" height="20" rx="2" fill="#fff" stroke="#eb6834" stroke-width="1.4"/>
+            <line x1="56" y1="16" x2="74" y2="16" stroke="#898781" stroke-width="1.2"/>
+            <line x1="126" y1="16" x2="144" y2="16" stroke="#898781" stroke-width="1.2"/>
+            <line x1="100" y1="26" x2="100" y2="38" stroke="#898781" stroke-width="1.2"/>
+            <line x1="126" y1="48" x2="144" y2="48" stroke="#898781" stroke-width="1.2"/>
+            <text x="30" y="19" font-size="7" text-anchor="middle" fill="#0b0b0b">感測 I²C</text>
+            <text x="100" y="19" font-size="7" text-anchor="middle" fill="#0b0b0b">MATRIX R4</text>
+            <text x="170" y="19" font-size="7" text-anchor="middle" fill="#0b0b0b">Pi 5 決策</text>
+            <text x="100" y="51" font-size="7" text-anchor="middle" fill="#0b0b0b">風扇／濾鏈</text>
+            <text x="170" y="51" font-size="7" text-anchor="middle" fill="#0b0b0b">雲端 Grafana</text>
+          </svg></div>
+          <div class="meta"><span>圖 2-1　SCD41 · SHT31 · MAX6675 · 5015×2 · D4184</span><span>MQTT→Telegraf→InfluxDB→Grafana</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(92px * var(--px))">
+          <h4><span class="tag">2.2</span>故障安全階梯</h4>
+          <p>雲斷→Pi 續跑｜Pi 失效→R4 本地 FSM（仍有 CO₂ 讀值）｜溫度聯鎖為最後底線</p>
+          <div class="chart">
+            <b style="height:30%;background:var(--s1)"></b><b style="height:55%;background:var(--s1)"></b><b style="height:80%;background:var(--s1)"></b><b style="height:100%;background:var(--good)"></b>
+          </div>
+          <div class="meta"><span>圖 2-2</span><span>✓ 實機驗證</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(92px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag star">★ 2.3</span>我們推翻了自己的罩體</h4>
+          <p>三項獨立判準同時指出 175 mm 接不住煙羽 → 改 215 mm、h<sub>spec</sub> 0.18 m、加三面側裙</p>
+          <div class="lineart"><svg viewBox="0 0 100 34" preserveAspectRatio="none">
+            <line x1="0" y1="20" x2="100" y2="20" stroke="#d03b3b" stroke-width="1.4" stroke-dasharray="3 2"/>
+            <polyline points="0,30 25,24 50,17 75,11 100,5" fill="none" stroke="#2a78d6" stroke-width="1.8"/>
+            <polyline points="0,32 25,27 50,22 75,17 100,12" fill="none" stroke="#eb6834" stroke-width="1.8"/>
+          </svg></div>
+          <div class="meta"><span>圖 2-3　本張主圖</span><span>flow_analysis.py §5</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(80px * var(--px))">
+          <h4><span class="tag">2.4</span>最脆弱的是 1 支香，不是尖峰</h4>
+          <p>w ∝ N<sup>1/3</sup> → 橫流 0.25 m/s 下漂移 169 mm ≈ 罩口半徑兩倍</p>
+          <div class="chart">
+            <b style="height:100%;background:var(--bad)"></b><b style="height:79%;background:var(--s2)"></b><b style="height:58%;background:var(--s2)"></b><b style="height:48%;background:var(--s1)"></b><b style="height:37%;background:var(--s1)"></b>
+          </div>
+          <div class="meta"><span>圖 2-4</span><span>⚠ 側裙假設待驗</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(80px * var(--px))">
+          <h4><span class="tag">2.5</span>前饋是必要件，不是加分項</h4>
+          <p>時間尺度分離 7,013 倍（0.17 s vs 19.4 min）→ 串級控制＋CO₂ 斜率前饋</p>
+          <div class="lineart"><svg viewBox="0 0 100 30" preserveAspectRatio="none">
+            <polyline points="0,26 30,25 40,10 55,8 100,7" fill="none" stroke="#2a78d6" stroke-width="1.8"/>
+            <polyline points="0,28 48,27 62,16 78,12 100,11" fill="none" stroke="#eb6834" stroke-width="1.8" stroke-dasharray="3 2"/>
+          </svg></div>
+          <div class="meta"><span>圖 2-5</span><span>SCD41 CO₂ 前饋</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(92px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag star">★ 2.6</span>把文化約束寫成硬約束，四種負載才全數合規</h4>
+          <p>固定權重下暴露項梯度壓過儀式懲罰 → 噪音與煙柱全數違反；改對偶上升後 u* 收斂 0.58–0.59</p>
+          <div class="tbl" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr">
+            <s class="h"></s><s class="h"></s><s class="h"></s><s class="h"></s><s class="h"></s>
+            <s></s><s></s><s></s><s></s><s style="background:#f7d7d7"></s>
+            <s></s><s></s><s></s><s></s><s style="background:#f7d7d7"></s>
+            <s></s><s></s><s></s><s></s><s style="background:#d7f0d7"></s>
+            <s></s><s></s><s></s><s></s><s style="background:#d7f0d7"></s>
+          </div>
+          <div class="meta"><span>表 2-6　L = w_E L_exp + w_P u³ + w_F u + w_S Δu² + Σλ[max(0,g)]²</span><span>文化不可加權交易</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(54px * var(--px))">
+          <h4><span class="tag">2.7</span>四層驗證，全綠</h4>
+          <div class="tbl" style="grid-template-columns:repeat(4,1fr)">
+            <s style="background:#d7f0d7"></s><s style="background:#d7f0d7"></s><s style="background:#d7f0d7"></s><s style="background:#d7f0d7"></s>
+            <s></s><s></s><s></s><s></s>
+          </div>
+          <div class="meta"><span>韌體靜態｜資料流契約｜KiCad ERC 0 錯誤 17 網路｜雲端 C1–C12</span><span>✓ flash 36% · RAM 44%</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(50px * var(--px))">
+          <h4><span class="tag">2.8</span>實機證據</h4>
+          <div class="photo">控制盒內部　／　集煙罩＋爐盆　／　Grafana 即時面板</div>
+          <div class="meta"><span>Demonstration 15 分的憑據</span><span>✓ 每秒 telemetry 入庫</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(40px * var(--px))">
+          <h4><span class="tag">2.9</span>誠實邊界</h4>
+          <div class="lines"><i></i><i></i></div>
+          <div class="meta"><span>⚠ 感測器待接線／aroma02 為模擬爐／風扇 P–Q 未實測</span><span></span></div>
+        </div>
+      </div>
+
+      <div class="fband">
+        <span>隊名／學校／指導老師</span>
+        <div class="marks"><u>✓ 實測</u><u>◆ 文獻</u><u style="color:#b07b12">⚠ 設計目標</u><u>○ 估算</u></div>
+        <div class="qr"><s></s><s></s><s></s></div>
+      </div>
+    </div>
+  </div>
+  <div class="cap"><b>P2 · ENGINEERING</b><br>Engineering 15 · Code 10 · Demonstration 15 · Innovation 10<br>內文 ≈ 780 字／圖表 7 張＋照片</div>
+</div>
+
+<!-- ══════════════ P3 ══════════════ -->
+<div class="col">
+  <div class="banner"><span>TEAM NAME · SCHOOL · TAIWAN</span><span>智慧香爐 INTELLIGENT INCENSE CENSER</span><span>WRO 2026 · FI SENIOR</span></div>
+  <div class="bnote">立面 3 橫幅 1900 × 250 mm</div>
+  <div class="poster">
+    <div class="cols"><div></div><div></div><div></div><div></div><div></div><div></div></div>
+    <div class="safe"></div>
+    <div class="stack">
+      <div class="tband">
+        <div class="nav"><i class="dot"></i><i class="dot"></i><i class="dot on"></i> POSTER 3 OF 3</div>
+        <div class="kicker">ENTERPRISE　<span>企業｜影響力、商業模式與下一步</span></div>
+        <div class="claim">我們賣的不是乾淨的空氣，而是<em>可被證明的乾淨</em>。</div>
+        <div class="ptsz">主張句 100 pt／大標 66 pt／標題帶高 120 mm</div>
+      </div>
+
+      <div class="body">
+        <div class="m w3" style="height:calc(96px * var(--px))">
+          <h4><span class="tag">3.1</span>禁香的社會總成本</h4>
+          <p>心理慰藉不可替代＋產業鏈崩塌；帳單由最沒能力付的人承擔</p>
+          <div class="hero"><b>70萬</b><small>印度手工捲香從業者<br>其中 8 成為女性 ◆</small></div>
+          <div class="meta"><span>圖 3-1</span><span>◆ 印度中小微企業部</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(96px * var(--px))">
+          <h4><span class="tag">3.2</span>第四象限無人進入</h4>
+          <p>儀式完整性／成本／有效性／可驗證性——既有方案各犧牲其一</p>
+          <div class="lineart"><svg viewBox="0 0 60 40" preserveAspectRatio="none">
+            <line x1="30" y1="2" x2="30" y2="38" stroke="#e1e0d9"/><line x1="4" y1="20" x2="56" y2="20" stroke="#e1e0d9"/>
+            <circle cx="14" cy="12" r="2.6" fill="#eb6834"/><circle cx="18" cy="29" r="2.6" fill="#eb6834"/>
+            <circle cx="41" cy="30" r="2.6" fill="#1baf7a"/><circle cx="45" cy="10" r="4.2" fill="#2a78d6"/>
+          </svg></div>
+          <div class="meta"><span>圖 3-2</span><span>表 3-1 四維比較</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(96px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag star">★ 3.3</span>為什麼不能只買一台空氣清淨機</h4>
+          <div class="hero"><b>37×</b><small>單位風量效益比：以 1/11.5 的風量，達成 3.22 倍的減量 ⚠</small></div>
+          <div class="chart">
+            <b style="height:100%;background:var(--s2)"></b><b style="height:80%;background:var(--s3)"></b><b style="height:36%;background:var(--s1)"></b>
+          </div>
+          <div class="meta"><span>圖 3-3　無系統 97／清淨機 77.8／本系統 35.0 µg/m³</span><span>⚠ 設計目標</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(100px * var(--px))">
+          <h4><span class="tag">3.4</span>買方與三層營收</h4>
+          <p>B2B 單一決策者＝廟方管委會。設備銷售＋濾材訂閱＋空品數據服務</p>
+          <div class="chart">
+            <b style="height:48%;background:var(--s1)"></b><b style="height:72%;background:var(--s2)"></b><b style="height:96%;background:var(--s3)"></b>
+          </div>
+          <div class="meta"><span>圖 3-4</span><span>濾材週期與農曆耦合</span></div>
+        </div>
+
+        <div class="m w3" style="height:calc(100px * var(--px))">
+          <h4><span class="tag">3.5</span>可複製性即市場區隔</h4>
+          <p>對標碳中和廟宇約 500 萬元資本支出；原型 BOM &lt; NT$4,200</p>
+          <div class="chart">
+            <b style="height:100%;background:var(--s2)"></b><b style="height:0"></b><b style="height:14%;background:var(--s1)"></b>
+          </div>
+          <div class="meta"><span>圖 3-5（對數尺）</span><span>95% 廟宇被現行方案排除</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(70px * var(--px))">
+          <h4><span class="tag">3.6</span>護城河＝可歸因的數據</h4>
+          <p>歸一化 KPI 產出可歸因的減量數據 → 支援 ESG 揭露、碳盤查、地方補助核銷，形成客戶端轉換成本</p>
+          <div class="meta"><span>內文 24 pt · 70 字</span><span>不只賣硬體</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(96px * var(--px));border-color:#c9c6ba;border-width:1.5px">
+          <h4><span class="tag star">★ 3.7</span>下一步：三件事會讓所有 ⚠ 變成 ✓</h4>
+          <div class="lineart" style="border:0"><svg viewBox="0 0 200 40" preserveAspectRatio="none">
+            <line x1="4" y1="34" x2="196" y2="34" stroke="#e1e0d9" stroke-width="1"/>
+            <rect x="6" y="8" width="56" height="9" rx="2" fill="#2a78d6"/>
+            <rect x="68" y="20" width="60" height="9" rx="2" fill="#eb6834"/>
+            <rect x="134" y="8" width="60" height="9" rx="2" fill="#1baf7a"/>
+            <text x="34" y="15.5" font-size="6" text-anchor="middle" fill="#fff">① 三條特性曲線＋廟方訪談</text>
+            <text x="98" y="27.5" font-size="6" text-anchor="middle" fill="#fff">② ASHRAE 110 示蹤 2×2</text>
+            <text x="164" y="15.5" font-size="6" text-anchor="middle" fill="#fff">③ 廟宇實地佈點</text>
+          </svg></div>
+          <div class="meta"><span>圖 3-6　含風險登錄：側裙橫流假設為全案最脆弱單點</span><span>Next Steps 10 分</span></div>
+        </div>
+
+        <div class="m w6" style="height:calc(62px * var(--px))">
+          <h4><span class="tag">3.8</span>團隊與分工</h4>
+          <div class="photo">成員照片 ×N　／　各自負責模組　／　研究日誌節錄（迭代痕跡）</div>
+          <div class="meta"><span>Team Spirit 15 分</span><span></span></div>
+        </div>
+      </div>
+
+      <div class="fband">
+        <span>隊名／學校／指導老師</span>
+        <div class="marks"><u>✓ 實測</u><u>◆ 文獻</u><u style="color:#b07b12">⚠ 設計目標</u><u>○ 估算</u></div>
+        <div class="qr"><s></s><s></s><s></s></div>
+      </div>
+    </div>
+  </div>
+  <div class="cap"><b>P3 · ENTERPRISE</b><br>Entrepreneurship 10 · Next Steps 10 · Social Impact 10 · Team Spirit 15<br>內文 ≈ 700 字／圖表 6 張＋照片</div>
+</div>
+
+</div>
+
+<div class="note">
+<b>怎麼看這份預覽。</b> 版面比例、分區大小、圖文比都是按 594 × 841 mm 等比縮放的真實配置；<b>字級是示意</b>（真實內文 24 pt 在這個縮圖上只有約 5 px，不可能讀）。要驗證字級，請用規劃書 §3.3 的表，並在 ⑥ 階段先印 A4 縮圖實測。<br><br>
+<b>三個刻意的設計決定。</b>（1）每張只有一句 100 pt 的主張句，三句連起來就是完整論證鏈；（2）★ 標記的三個模組佔最大版面，它們分別是「捕集是接不是吸」「我們推翻了自己的罩體」「效益比 37 倍」——這三件事是其他隊伍最不可能有的；（3）頁尾的四符號誠實圖例三張一致，它把「哪些是實測、哪些是設計目標」變成海報的結構，而不是註腳。<br><br>
+<b>還沒決定的事</b>見規劃書 §7，其中第 3 項（罩口 175／180／200／215 四個數字尚未在專案文件間同步）必須在排版前解決——海報上不能出現互相矛盾的規格。
+</div>
+
+<script>
+  const row = document.getElementById('row');
+  document.getElementById('g').onchange = e => row.classList.toggle('showgrid', e.target.checked);
+  document.getElementById('s').onchange = e => row.classList.toggle('showsafe', e.target.checked);
+  document.getElementById('b').onchange = e =>
+    document.querySelectorAll('.banner,.bnote').forEach(n => n.classList.toggle('hide', !e.target.checked));
+</script>
+</body>
+</html>
