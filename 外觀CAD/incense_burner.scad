@@ -78,8 +78,6 @@ use <parts/chamber.scad>
 use <parts/hood.scad>
 use <parts/fan_mount.scad>
 use <parts/sensor_pod.scad>
-use <parts/socket_plate.scad>
-use <parts/magnet_deck.scad>
 
 // 外購元件（非列印件）。★尺寸多為估值，見各檔開頭★
 use <components/bowl.scad>
@@ -89,7 +87,6 @@ use <components/d4184.scad>
 use <components/blower_5015.scad>
 use <components/sensors.scad>
 use <components/max6675.scad>
-use <components/tidy_parts.scad>
 use <components/mist_led.scad>
 
 // ═══════════════════════════════════════════════════════════════
@@ -99,16 +96,14 @@ use <components/mist_led.scad>
 //   assembly() 與干涉檢查共用同一組變換——這是單一真相來源。
 //   若分開寫，改了組裝卻忘了改檢查，干涉檢查就會驗到錯的位置。
 
-PARTS_LIST = ["base", "chamber", "hood", "fan_mount", "sensor_pod",
-              "socket_plate", "magnet_deck"];
-PART_COLOR = ["#5b6670", "#8b6f47", "#a8825c", "#3f4a52", "#2f6f5a",
-              "#7a6a8f", "#5a5f6a"];
+PARTS_LIST = ["base", "chamber", "hood", "fan_mount", "sensor_pod"];
+PART_COLOR = ["#5b6670", "#8b6f47", "#a8825c", "#3f4a52", "#2f6f5a"];
 
 // 外購元件——不列印，但要佔位置。★把它們畫出來才驗得到「裝得下、鎖得到」★
 // 沒有它們的時候，干涉檢查只檢查殼跟殼，等於默認「裡面一定塞得下」。
 COMP_LIST = ["bowl", "matrix_r4", "pi5", "d4184",
              "blower", "scd41", "sht31", "max6675", "tc_probe",
-             "sleeves", "magnets", "mist", "hood_led"];
+             "mist", "hood_led"];
 
 // 風扇座定位計算（外掛在燃燒艙後方）
 FAN_BODY_T   = FAN_T + WALL * 2;                  // 本體厚
@@ -123,8 +118,6 @@ module part_by_name(name) {
     else if (name == "hood")       hood();
     else if (name == "fan_mount")  fan_mount();
     else if (name == "sensor_pod") sensor_pod();
-    else if (name == "socket_plate") socket_plate();
-    else if (name == "magnet_deck")  magnet_deck();
     // 外購元件
     else if (name == "bowl")       bowl();
     else if (name == "matrix_r4")  matrix_r4();
@@ -135,8 +128,6 @@ module part_by_name(name) {
     else if (name == "sht31")      sht31();
     else if (name == "max6675")    max6675_board();
     else if (name == "tc_probe")   tc_probe();
-    else if (name == "sleeves")    guide_sleeves();
-    else if (name == "magnets")    electromagnets();
     else if (name == "mist")       mist_module();
     else if (name == "hood_led")   hood_led();
 }
@@ -165,51 +156,22 @@ module place(name, explode = 0) {
         translate([BASE_W / 2 - POD_W / 2, -POD_D - explode, BASE_H - POD_H - 2])
             children();
 
-    // ── 理香機構 ────────────────────────────────────────────
-    // ★全部由「插孔板落座於集煙罩內 TIDY_SEAT_Z」這一個基準推導★
-    //   改落座高度，磁座、套筒、電磁鐵會一起跟著動。
-    else if (name == "socket_plate")
-        translate([BASE_W / 2, BASE_D / 2,
-                   BASE_H + CHMB_H + TIDY_SEAT_Z + explode]) children();
-    else if (name == "magnet_deck")
-        translate([BASE_W / 2, BASE_D / 2,
-                   BASE_H + CHMB_H + TIDY_SEAT_Z - TIDY_STANDOFF_H - explode])
-            children();
-    else if (name == "sleeves")
-        // 套筒底面（鐵墊圈底）＝ 板底往下 TIDY_WASHER_T
-        translate([BASE_W / 2, BASE_D / 2,
-                   BASE_H + CHMB_H + TIDY_SEAT_Z - TIDY_WASHER_T + explode])
-            children();
-    else if (name == "magnets")
-        // 電磁鐵吸合面＝磁座頂面
-        translate([BASE_W / 2, BASE_D / 2,
-                   BASE_H + CHMB_H + TIDY_SEAT_Z - TIDY_STANDOFF_H - explode])
-            children();
-
     // ── 外購元件 ────────────────────────────────────────────
     // ★沿用同一組 place()★ 這樣元件的定位與組合件、干涉檢查永遠一致；
     //   另外寫一份就會有「組裝圖對、檢查驗錯位置」的經典錯誤。
-    else if (name == "mist")
-        // 泡在爐盆底部的水裡
-        translate([BASE_W / 2, BASE_D / 2,
-                   BASE_H + CHMB_H - BOWL_H + BOWL_WALL + explode]) children();
-    else if (name == "hood_led")
-        // 貼在集煙罩內側前壁，側向打光讓霧看得清楚
-        translate([BASE_W / 2,
-                   (BASE_D - CHMB_D) / 2 + WALL + HOODLED_T / 2 + 14,
-                   BASE_H + CHMB_H + 16 + explode]) children();
-    else if (name == "bowl")
-        translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H - BOWL_H + explode])
-            children();
     else if (name == "mist")
         // 泡在爐盆底部的水裡（壓電片要沒入水中，建議水位 MIST_WATER_MM）
         translate([BASE_W / 2, BASE_D / 2,
                    BASE_H + CHMB_H - BOWL_H + BOWL_WALL + explode]) children();
     else if (name == "hood_led")
-        // 貼在集煙罩內側前壁，側向打光——霧被側光打亮時可見度差好幾倍
+        // 貼在集煙罩直筒段內側前壁，側向打光——霧被側光打亮時可見度差好幾倍
+        // （漏斗改版後直筒段牆面垂直，直接貼壁即可，不再有錐面內縮量）
         translate([BASE_W / 2,
-                   (BASE_D - CHMB_D) / 2 + WALL + HOODLED_T / 2 + 14,
+                   (BASE_D - CHMB_D) / 2 + WALL + HOODLED_T / 2,
                    BASE_H + CHMB_H + 16 + explode]) children();
+    else if (name == "bowl")
+        translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H - BOWL_H + explode])
+            children();
     else if (name == "matrix_r4")
         translate([14, 14, FLOOR + STANDOFF_H - explode]) children();
     else if (name == "pi5")
@@ -310,18 +272,13 @@ module blocked(zone, owner) {
 //         擋掉 115mm³（中間三道槽各被截去 2mm 高度）。
 module throughway(name) {
     if (name == "hood_opening")
-        // ★2026-08-07 改寫★ 裝上理香機構之後，投香口不再是「一個空洞」——
-        //   插孔板就坐在裡面，香是插進★套筒★而不是插進空洞。
-        //   所以要驗的不是「洞是空的」，而是「香從上方伸得到套筒口」。
-        //   原本量整個開口截面，會把承接凸耳算成阻塞（761mm³），
-        //   但凸耳是刻意存在、用來托住板子的結構。
-        //   ★這不是把檢查放寬★：改成四根細探針沿套筒軸線往下戳，
-        //   任何擋在香進入路徑上的東西一樣會被抓到。
-        for (x = [-TIDY_HOLE_PITCH / 2, TIDY_HOLE_PITCH / 2],
-             y = [-TIDY_HOLE_PITCH / 2, TIDY_HOLE_PITCH / 2])
-            translate([BASE_W / 2 + x, BASE_D / 2 + y,
-                       BASE_H + CHMB_H + TIDY_SEAT_Z])
-                cylinder(h = HOOD_H - TIDY_SEAT_Z + 10, d = TIDY_SLEEVE_ID - 1);
+        // ★2026-08-16 改回全口徑探針★ 理香機構移除後，投香口就是一個
+        //   向上開的漏斗大口，香直接插進爐盆——要驗的回到「口是通的」。
+        //   探針從罩頂上方沿軸線伸進罩內（穿過喇叭段進到直筒段），
+        //   與集煙罩自身求交集必須 ≈ 0；共面退化薄膜或任何殘留頂蓋
+        //   都會被抓到。直徑比直筒內寬（151.2）小 40mm，留餘量給圓角。
+        translate([BASE_W / 2, BASE_D / 2, BASE_H + CHMB_H + HOOD_H - 20])
+            cylinder(h = 40, d = CHMB_W - WALL * 2 - 40);
     else if (name == "pod_back")         // 感測器艙背面（要開放才裝得進模組與走線）
         // ★探針起點由「最後一排定位肋的背面」推導，不是手調的數字★
         //   肋條是刻意存在的結構，探針若壓在肋上，量到的是設計本身而不是缺陷
@@ -371,8 +328,6 @@ module dispatch() {
     else if (part == "hood")         hood();
     else if (part == "fan_mount")    fan_mount();
     else if (part == "sensor_pod")   sensor_pod();
-    else if (part == "socket_plate") socket_plate();
-    else if (part == "magnet_deck")  magnet_deck();
     else if (part == "print_plate")  print_plate();
     else if (part == "placed")       placed(PAIR_A);           // 定位後單件（取包圍盒）
     else if (part == "interference") interference(PAIR_A, PAIR_B);

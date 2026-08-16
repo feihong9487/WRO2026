@@ -27,7 +27,7 @@ python3 run_tests.py -k PLA   # 只跑名稱含 PLA 的規則
 python3 -m pytest -q          # 若環境有裝 pytest，行為等價
 
 # 幾何層（L2）：CAD 匯出 STL 後
-python3 CAD自檢/verify_stl.py <檔案>.stl --part socket_plate
+python3 CAD自檢/verify_stl.py <檔案>.stl
 
 # 外觀 CAD（會實際呼叫 OpenSCAD 算繪）
 python3 外觀CAD/驗證CAD.py
@@ -101,8 +101,7 @@ python3 PI5/驗證資料流.py
 以下行為一律禁止，違反即視為任務失敗：
 
 1. **修改測試斷言**或放寬驗證器容差，以讓輸出變綠
-2. **放寬安全與可製造性下限**：`MIN_SLIDE_CLEARANCE`、`MIN_WALL_BETWEEN_HOLES`、
-   `PLATE_CENSER_CLEARANCE`、`MIN_PRINTABLE_FEATURE`、壁厚、氣隙
+2. **放寬安全與可製造性下限**：壁厚、氣隙、耐熱溫度、列印最小特徵等下限
 3. **規避禁 PLA 區**：把近爐零件改用 PLA，或把零件標成 `near_censer=False`
 4. **調換 `FILTER_CHAIN` 順序**——金屬紗網必須在 HEPA 之前（火星防護）
 5. **把 `*_MEASURED` 旗標改成 `True`**——只有人實際量過才能改
@@ -126,7 +125,7 @@ python3 PI5/驗證資料流.py
 
 以下**無法**由任何自動檢查取代：
 
-熱變形實測｜氣流與抽排效能｜電磁鐵實際吸力與行程｜插香手感與人因｜
+熱變形實測｜氣流與抽排效能｜插香手感與人因｜
 列印件強度與耐久｜外觀與文化適切性（廟方觀感）｜韌體實機燒錄行為
 
 ---

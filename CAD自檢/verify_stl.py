@@ -7,7 +7,7 @@
 全過 exit 0，任一失敗 exit 1 —— 這是 CAD 層唯一機器可判定的訊號。
 
 用法：
-  python3 verify_stl.py socket_plate.stl --part socket_plate
+  python3 verify_stl.py <零件>.stl                # 通用幾何檢查
 
 ★ 見 .claude/commands/verify.md：不得為了讓輸出變綠而放寬容差或修改設計紅線。★
 
@@ -189,76 +189,6 @@ def load_stl(path):
 # 零件驗證
 # ═══════════════════════════════════════════════════════════════
 
-def verify_socket_plate(mesh):
-    """插孔板：核對外徑、厚度、通孔數、體積。"""
-    # 1 水密性（破面模型無法計算體積，也不可能列印）
-    if mesh.is_watertight:
-        ok("模型水密（manifold）")
-    else:
-        bad("模型非水密", "有破面或重複邊，CAD 匯出設定或建模有問題")
-
-    # 2 單一連通元件
-    n_bodies = mesh.body_count
-    if n_bodies == 1:
-        ok("單一實體（1 個連通元件）")
-    else:
-        bad(f"模型含 {n_bodies} 個分離實體", "插孔板應為單一件")
-
-    # 3 外框尺寸 vs 設計參數
-    ext = mesh.extents
-    dia_actual = max(ext[0], ext[1])
-    thk_actual = min(ext)
-    if close_enough(dia_actual, P.PLATE_DIA):
-        ok(f"外徑 {dia_actual:.1f}mm ≈ 設計值 {P.PLATE_DIA}mm")
-    else:
-        bad(f"外徑 {dia_actual:.1f}mm 與設計值 {P.PLATE_DIA}mm 不符")
-
-    if close_enough(thk_actual, P.PLATE_THICKNESS):
-        ok(f"板厚 {thk_actual:.1f}mm ≈ 設計值 {P.PLATE_THICKNESS}mm")
-    else:
-        bad(f"板厚 {thk_actual:.1f}mm 與設計值 {P.PLATE_THICKNESS}mm 不符")
-
-    # 4 必須放得進香爐（這條直接引用設計紅線，不可放寬）
-    if dia_actual <= P.CENSER_INNER_DIA - P.PLATE_CENSER_CLEARANCE:
-        ok(f"可放入香爐（爐內徑 {P.CENSER_INNER_DIA}mm）")
-    else:
-        bad("實際外徑放不進香爐或間隙不足")
-
-    # 5 通孔數 = 虧格（幾何不變量，抓漏挖/多挖孔）
-    if mesh.is_watertight and n_bodies == 1:
-        genus = mesh.genus
-        if genus == P.PLATE_HOLE_COUNT:
-            ok(f"通孔數 {genus} = 設計值 {P.PLATE_HOLE_COUNT}（由虧格推算）")
-        else:
-            bad(f"通孔數 {genus} ≠ 設計值 {P.PLATE_HOLE_COUNT}",
-                "建模時漏挖或多挖了孔；若有盲孔/倒角凹槽此推算不適用")
-    else:
-        warn("模型非水密或非單一實體，跳過通孔數檢查")
-
-    # 6 體積比對
-    if mesh.is_watertight:
-        vol = mesh.volume
-        expect = P.plate_volume_mm3()
-        if close_enough(vol, expect, tol=0.10):
-            ok(f"體積 {vol/1000:.1f}cm³ ≈ 預期 {expect/1000:.1f}cm³")
-        else:
-            bad(f"體積 {vol/1000:.1f}cm³ 與預期 {expect/1000:.1f}cm³ 差異過大",
-                "可能多了倒角/肋條，或孔徑不對——請確認是刻意設計")
-
-        # 7 列印用料預算
-        mass = vol / 1000.0 * P.PLATE_MATERIAL.density_g_cm3 * P.PRINT_INFILL
-        if mass < P.PETG_SPOOL_G * 0.5:
-            ok(f"預估列印質量 {mass:.0f}g（填充 {P.PRINT_INFILL:.0%}），在一卷線材預算內")
-        else:
-            bad(f"預估 {mass:.0f}g，超過半卷 PETG")
-
-    # 8 法向量一致（方向錯亂的面會讓切片軟體出錯）
-    if mesh.is_winding_consistent:
-        ok("面法向量方向一致")
-    else:
-        bad("面法向量方向不一致", "匯出前請在 CAD 檢查曲面方向")
-
-
 def verify_generic(mesh):
     """未指定零件類型時的通用檢查。"""
     if mesh.is_watertight:
@@ -286,8 +216,9 @@ def main():
     ap = argparse.ArgumentParser(description="智慧香爐 STL 幾何驗證器")
     ap.add_argument("stl", help="STL 檔案路徑")
     ap.add_argument("--part", default="generic",
-                    choices=["socket_plate", "generic"],
-                    help="零件類型（socket_plate = 插孔板）")
+                    choices=["generic"],
+                    help="零件類型（理香機構移除後僅剩通用檢查；"
+                         "新零件的專屬驗證請在此登記）")
     args = ap.parse_args()
 
     print(f"=== STL 幾何驗證：{args.stl}（類型：{args.part}）===")
@@ -298,10 +229,7 @@ def main():
         sys.exit(1)
 
     print(f"       三角形 {len(mesh.faces)}、頂點 {len(mesh.vertices)}")
-    if args.part == "socket_plate":
-        verify_socket_plate(mesh)
-    else:
-        verify_generic(mesh)
+    verify_generic(mesh)
 
     pending = P.unmeasured_items()
     if pending:

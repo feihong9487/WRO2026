@@ -157,13 +157,10 @@ def build_routes():
     link("FAN_P", pin_xy("U6", "OUT+"), pin_xy("M1", "紅線 +"), CH["fan_p"])
     link("FAN_N", pin_xy("U6", "OUT-"), pin_xy("M1", "黑線 -"), CH["fan_n"])
 
-    # ── 理香／霧化致動：控制器 → PCF8574（I2C3 獨立埠）────────
+    # ── 霧化／照明致動：控制器 → PCF8574（I2C3 獨立埠）────────
+    # （2026-08-16 理香機構移除：MAG1-4 四路與 K1 電磁鐵陣列自電路刪除）
     link("I2C3_SDA", pin_xy("A1", "I2C3 SDA"), pin_xy("U7", "SDA"), CH["i2c3_sda"])
     link("I2C3_SCL", pin_xy("A1", "I2C3 SCL"), pin_xy("U7", "SCL"), CH["i2c3_scl"])
-    link("MAG1", pin_xy("U7", "OUT1 電磁鐵1"), pin_xy("K1", "MAG1"), CH["mag1"])
-    link("MAG2", pin_xy("U7", "OUT2 電磁鐵2"), pin_xy("K1", "MAG2"), CH["mag2"])
-    link("MAG3", pin_xy("U7", "OUT3 電磁鐵3"), pin_xy("K1", "MAG3"), CH["mag3"])
-    link("MAG4", pin_xy("U7", "OUT4 電磁鐵4"), pin_xy("K1", "MAG4"), CH["mag4"])
     link("MIST", pin_xy("U7", "OUT5 霧化"), pin_xy("M2", "MIST"), CH["mist"])
     link("HOODLED", pin_xy("U7", "OUT6 罩內LED"), pin_xy("LED1", "HOODLED"), CH["hoodled"])
 

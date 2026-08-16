@@ -304,44 +304,23 @@ uint16_t co2Baseline()
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 理香機構：I²C MOSFET 驅動板（PCF8574）
+// 致動輔助：I²C MOSFET 驅動板（PCF8574）——霧化與罩內 LED
 // ═══════════════════════════════════════════════════════════════
 // ★為什麼走 I²C 而不是 GPIO★
 //   R4 可用腳（D1/D4 共 4 支）已全滿，D2/D3 被 MiniR4.begin() 的 PS2 佔走。
-//   而 0.5A 電磁鐵本來就不能由 MCU 腳直驅，MOSFET 板無論如何都要買——
+//   12V 負載本來就不能由 MCU 腳直驅，MOSFET 板無論如何都要買——
 //   選 I²C 版本同時解掉腳位問題，增量成本趨近於零。
 //
-// ★互鎖在這裡是「結構性」保證，不是靠紀律★
-//   輸出是一個位元組，送出前檢查「電磁鐵那 4 個 bit 至多一個為 1」即可。
-//   換成 4 支獨立 GPIO 的話，同時拉高兩支是隨時可能發生的疏忽，
-//   而 3A 電源正是靠「一次只吸一顆」才夠（見 mech_params 的電源預算）。
+// （2026-08-16 理香機構移除：OUT1-4 的電磁鐵四路與互鎖／脈衝限制
+//   隨機構一併移除。霧化與 LED 沿用原輸出腳位，接線不動。）
 const uint8_t PCF8574_ADDR = 0x20;
-const uint8_t MASK_MAGNETS = 0x0F;   // OUT1-4 → 電磁鐵
-const uint8_t BIT_MIST     = 0x10;   // OUT5   → 超音波霧化
-const uint8_t BIT_HOODLED  = 0x20;   // OUT6   → 罩內 LED 側光
+const uint8_t BIT_MIST     = 0x10;   // OUT5 → 超音波霧化
+const uint8_t BIT_HOODLED  = 0x20;   // OUT6 → 罩內 LED 側光
 
-// 脈衝限制（交接文件 §1.4）：線圈連續通電的 I²R 發熱會讓 20N 小磁鐵
-// 幾分鐘內燙手、線圈壽命驟減。理香本質是「事件驅動的偶發矯正」而非
-// 連續運轉——需求型態與熱限制指向同一答案。
-const uint32_t MAG_PULSE_MAX_MS   = 2000;   // 單次最長通電
-const uint8_t  MAG_DUTY_MAX_PCT   = 30;     // 佔空比上限
-const uint32_t MAG_DUTY_WINDOW_MS = 60000;
-
-uint8_t  outByte        = 0;    // 目前送出的輸出位元組
-int8_t   magActive      = -1;   // 目前通電的電磁鐵（-1 = 無）
-uint32_t magOnSince     = 0;
-uint32_t magOnSum       = 0;    // 本視窗內累計通電時間
-uint32_t magWindowStart = 0;
+uint8_t outByte = 0;    // 目前送出的輸出位元組
 
 void ioWrite(uint8_t v)
 {
-    // ★互鎖★ 電磁鐵位元至多一個為 1，否則就地清成 0 並拒送。
-    //   v & (v-1) 只有在「至多一個 bit」時為 0。
-    uint8_t mags = v & MASK_MAGNETS;
-    if (mags & (uint8_t)(mags - 1)) {
-        v &= (uint8_t)~MASK_MAGNETS;        // 寧可全關，不可同時吸兩顆
-        Serial.println(F("{\"err\":\"MAGNET_SIMULTANEOUS blocked\"}"));
-    }
     outByte = v;
     // ★必須先切多工器通道★ 四個 I²C 埠全在 PCA9548A 後面；感測迴圈
     // 每秒都在切 ch0/ch1，不切回 ch2 的話這筆寫入會落到別的通道上。
@@ -349,39 +328,6 @@ void ioWrite(uint8_t v)
     SENSOR_WIRE.beginTransmission(PCF8574_ADDR);
     SENSOR_WIRE.write(outByte);
     SENSOR_WIRE.endTransmission();
-}
-
-void magnetOff()
-{
-    if (magActive >= 0) {
-        magOnSum += millis() - magOnSince;
-        magActive = -1;
-    }
-    ioWrite(outByte & (uint8_t)~MASK_MAGNETS);
-}
-
-// 回傳是否真的通電。被脈衝／佔空比限制或安全事件擋下時回 false。
-bool magnetPulse(uint8_t idx)
-{
-    if (idx >= 4) return false;
-    if (millis() - magWindowStart >= MAG_DUTY_WINDOW_MS) {
-        magWindowStart = millis();
-        magOnSum = 0;
-    }
-    if (magOnSum >= MAG_DUTY_WINDOW_MS * MAG_DUTY_MAX_PCT / 100) return false;
-    if (tcFault || interlock) return false;   // 安全事件時不作動任何致動器
-    magnetOff();                              // 先關掉上一顆——互鎖
-    magActive  = idx;
-    magOnSince = millis();
-    ioWrite((outByte & (uint8_t)~MASK_MAGNETS) | (uint8_t)(1 << idx));
-    return true;
-}
-
-// 每輪呼叫：脈衝逾時或安全事件 → 斷電
-void magnetTick()
-{
-    if (magActive >= 0 && millis() - magOnSince >= MAG_PULSE_MAX_MS) magnetOff();
-    if (tcFault || interlock) magnetOff();
 }
 
 void mistSet(bool on)   { ioWrite(on ? (outByte | BIT_MIST)    : (outByte & (uint8_t)~BIT_MIST)); }
@@ -505,7 +451,6 @@ void setup()
     analogWrite(PIN_FAN, 0);      // 上電先確保風扇停止
 
     baselineInit();               // CO2 背景基線的分鐘桶
-    magWindowStart = millis();
     ioWrite(0);                   // 上電先確保所有致動器關閉
 
     // MATRIX 板級初始化（STM32、OLED、LED、蜂鳴器、馬達/伺服預備）
@@ -591,7 +536,6 @@ void loop()
 
     outDuty = duty;
     analogWrite(PIN_FAN, outDuty);
-    magnetTick();                 // 脈衝逾時／安全事件 → 斷電
 
     // 5) 每秒回報狀態給 Pi ＋ 更新顯示
     if (millis() - lastTick >= TICK_MS) {

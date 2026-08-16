@@ -139,7 +139,9 @@
     <p class="eyebrow">WRO 2026 · 智慧香爐 · P0 里程碑</p>
     <h1>接線圖與電氣驗證</h1>
     <p>兩板合併架構的完整腳位對照、訊號路徑，以及通電前的規格書驗算。<br>
-       rev F · 2026-08-10 — 新增理香／霧化 I²C 致動段（PCF8574）、聯鎖門檻改 150/130（臨時值）、
+       rev G · 2026-08-16 — <strong>理香機構移除</strong>（使用者決定）：PCF8574 的電磁鐵四路
+       （OUT1-4）與互鎖／脈衝限制自電路與韌體刪除，驅動板只剩霧化與罩內 LED，實體接線不動。<br>
+       rev F · 2026-08-10 — 新增霧化 I²C 致動段（PCF8574）、聯鎖門檻改 150/130（臨時值）、
        電源升級 12V 3A、USB 連線與 R4 電源鍵行為註記。</p>
   </header>
 
@@ -156,7 +158,7 @@
   <section>
     <h2>系統拓撲</h2>
     <div class="figure">
-      <svg viewBox="0 0 960 340" role="img" aria-label="兩板系統拓撲：SCD41 與 SHT31 經 I2C 埠接 MATRIX Mini R4，控制器再經 USB 序列連 Raspberry Pi 5，並驅動 MAX6675、D4184 風扇模組與 PCF8574 致動板（電磁鐵、霧化、罩內LED）">
+      <svg viewBox="0 0 960 340" role="img" aria-label="兩板系統拓撲：SCD41 與 SHT31 經 I2C 埠接 MATRIX Mini R4，控制器再經 USB 序列連 Raspberry Pi 5，並驅動 MAX6675、D4184 風扇模組與 PCF8574 致動板（霧化、罩內LED）">
         <defs>
           <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
@@ -207,18 +209,18 @@
 
           <rect x="700" y="136" width="230" height="60" rx="3" fill="none" stroke="var(--c-alarm)" stroke-width="1.5" stroke-dasharray="4 3"/>
           <text x="815" y="154" text-anchor="middle" fill="var(--c-alarm)" font-weight="700">PCF8574 MOSFET 板 (0x20)</text>
-          <text x="815" y="170" text-anchor="middle" fill="var(--ink-3)">OUT1-4 電磁鐵×4（理香）</text>
-          <text x="815" y="186" text-anchor="middle" fill="var(--ink-3)">OUT5 霧化 12V · OUT6 罩內LED</text>
+          <text x="815" y="170" text-anchor="middle" fill="var(--ink-3)">OUT5 霧化 12V · OUT6 罩內LED</text>
+          <text x="815" y="186" text-anchor="middle" fill="var(--ink-3)">（OUT1-4 空置；電磁鐵已移除）</text>
 
           <line x1="520" y1="60" x2="694" y2="44" stroke="var(--c-pwm)" stroke-width="2" marker-end="url(#ar)"/>
           <line x1="520" y1="90" x2="694" y2="100" stroke="var(--c-12v)" stroke-width="2" marker-end="url(#ar)"/>
           <line x1="520" y1="120" x2="694" y2="160" stroke="var(--c-alarm)" stroke-width="2" marker-end="url(#ar)"/>
-          <text x="608" y="152" fill="var(--c-alarm)" font-size="10">I²C1（與 SCD41 併聯）</text>
+          <text x="608" y="152" fill="var(--c-alarm)" font-size="10">I²C3（獨佔一埠）</text>
 
           <!-- 電源 -->
           <rect x="30" y="228" width="200" height="52" rx="3" fill="none" stroke="var(--c-pwr)" stroke-width="1.5"/>
           <text x="130" y="248" text-anchor="middle" fill="var(--c-pwr)" font-weight="700">12V 3A 變壓器</text>
-          <text x="130" y="266" text-anchor="middle" fill="var(--ink-3)" font-size="10">餵控制器＋風扇＋磁鐵＋霧化</text>
+          <text x="130" y="266" text-anchor="middle" fill="var(--ink-3)" font-size="10">餵控制器＋風扇＋霧化＋LED</text>
           <path d="M230,242 L268,242 L268,90 L294,90" fill="none" stroke="var(--c-pwr)" stroke-width="2" marker-end="url(#ar)"/>
           <path d="M230,266 L600,266 L600,146 L694,120" fill="none" stroke="var(--c-pwr)" stroke-width="2" marker-end="url(#ar)"/>
           <text x="612" y="284" fill="var(--ink-3)" font-size="10">共地自動成立（同一電源負極）</text>
@@ -333,36 +335,23 @@ Wire1.endTransmission();</div>
   </section>
 
   <section>
-    <h2>理香機構與霧化 · I²C 致動段</h2>
+    <h2>霧化與罩內照明 · I²C 致動段</h2>
     <p>R4 的可用 GPIO（D1／D4 共 4 支）已被熱電偶與風扇佔滿，致動改走
-       I²C MOSFET 驅動板（PCF8574，位址 <code>0x20</code>）。0.5 A 電磁鐵本來就不能由
+       I²C MOSFET 驅動板（PCF8574，位址 <code>0x20</code>）。12 V 負載本來就不能由
        MCU 腳直驅，選 I²C 版驅動板同時解掉腳位問題，增量成本趨近於零。</p>
+    <p>（2026-08-16 起理香機構移除：OUT1–OUT4 的電磁鐵四路自電路與韌體刪除，
+       這四路輸出空置。霧化與 LED 沿用原輸出腳位，實體接線不動。）</p>
     <div class="tablewrap">
       <table>
         <thead><tr><th>PCF8574 輸出</th><th>接到</th><th>備註</th></tr></thead>
         <tbody>
-          <tr class="new"><td class="pin">OUT1–OUT4</td><td class="pin">電磁鐵 ×4</td><td>理香定位，脈衝驅動（非連續通電）</td></tr>
-          <tr class="new"><td class="pin">OUT5</td><td class="pin">超音波霧化模組 12V</td><td>無明火展示的「煙」，冷霧</td></tr>
-          <tr class="new"><td class="pin">OUT6</td><td class="pin">罩內 LED 側光</td><td>照亮霧體</td></tr>
-          <tr><td class="pin">VCC / SDA / SCL</td><td class="pin">I²C1 埠（5 V）</td><td>與 SCD41 併聯</td></tr>
+          <tr class="new"><td class="pin">OUT5</td><td class="pin">超音波霧化模組 12V</td><td>無明火展示的「煙」，冷霧。韌體位元 <code>0x10</code></td></tr>
+          <tr class="new"><td class="pin">OUT6</td><td class="pin">罩內 LED 側光</td><td>照亮霧體。韌體位元 <code>0x20</code></td></tr>
+          <tr><td class="pin">OUT1–OUT4</td><td class="pin">（空置）</td><td>原電磁鐵四路，2026-08-16 隨理香機構移除</td></tr>
+          <tr><td class="pin">VCC / SDA / SCL</td><td class="pin">I²C3 埠（5 V）</td><td>獨佔一埠（韌體 <code>CH_PCF=2</code>），免分接線</td></tr>
           <tr><td class="pin">VIN+ / GND</td><td class="pin">12 V 排</td><td>動力來源，與 D4184 同一顆變壓器</td></tr>
         </tbody>
       </table>
-    </div>
-    <div class="grid2" style="margin-top:1.5rem">
-      <div class="card">
-        <h3>互鎖是結構性的，不是靠紀律</h3>
-        <p style="margin-bottom:0">輸出是一個位元組，送出前檢查「電磁鐵 4 個 bit 至多一個為 1」
-           （<code>v &amp; (v-1) == 0</code>），違規就地清零拒送。12 V 3 A 的電源預算
-           正是靠「一次只吸一顆」才成立；改用 4 支獨立 GPIO 反而可能不小心同時拉高兩支。</p>
-      </div>
-      <div class="card">
-        <h3>脈衝限制（線圈熱保護）</h3>
-        <div class="calc">單次通電上限   2000 ms
-佔空比上限     30 %（60 s 滑動視窗）</div>
-        <p style="margin-top:.9rem;margin-bottom:0">連續通電的 I²R 發熱會讓 20 N 小磁鐵幾分鐘內燙手、
-           線圈壽命驟減。理香本質是「事件驅動的偶發矯正」，需求型態與熱限制指向同一答案。</p>
-      </div>
     </div>
   </section>
 
@@ -372,9 +361,9 @@ Wire1.endTransmission();</div>
       <table>
         <thead><tr><th>連線</th><th>接到</th><th>訊號</th><th>備註</th></tr></thead>
         <tbody>
-          <tr class="new"><td class="pin">12 V 變壓器 +</td><td class="pin">控制器 VIN</td><td><span class="chip v12">12 V</span></td><td><strong>同一顆電源</strong>——控制器吃 6–24 V（★2A 升級為 3A，供磁鐵／霧化）</td></tr>
+          <tr class="new"><td class="pin">12 V 變壓器 +</td><td class="pin">控制器 VIN</td><td><span class="chip v12">12 V</span></td><td><strong>同一顆電源</strong>——控制器吃 6–24 V（★2A 升級為 3A）</td></tr>
           <tr><td class="pin">12 V 變壓器 +/−</td><td class="pin">D4184 VIN+/−</td><td><span class="chip v12">12 V</span></td><td>風扇 0.2 A 用量</td></tr>
-          <tr class="new"><td class="pin">12 V 變壓器 +/−</td><td class="pin">PCF8574 板 VIN+/GND</td><td><span class="chip v12">12 V</span></td><td>電磁鐵（單顆 0.5 A，互鎖限一次一顆）＋霧化模組</td></tr>
+          <tr class="new"><td class="pin">12 V 變壓器 +/−</td><td class="pin">PCF8574 板 VIN+/GND</td><td><span class="chip v12">12 V</span></td><td>霧化模組（0.35 A 估值）＋罩內 LED</td></tr>
           <tr><td class="pin">風扇紅線</td><td class="pin">D4184 OUT+</td><td><span class="chip v12">12 V</span></td><td rowspan="2">5015 渦輪，2.4 W</td></tr>
           <tr><td class="pin">風扇黑線</td><td class="pin">D4184 OUT−</td><td><span class="chip v12">12 V</span></td></tr>
           <tr><td class="pin">D4184 訊號 GND</td><td class="pin">R4 GND</td><td><span class="chip gnd">GND</span></td><td>共地母排</td></tr>
@@ -401,8 +390,7 @@ Wire1.endTransmission();</div>
           <tr class="new"><td>風扇 PWM 腳（腳 3）</td><td class="verdict ok">合格</td><td class="pin">—</td><td>D1 左支援 PWM，且未被 PS2 佔用</td></tr>
           <tr><td>風扇電流 vs MOSFET</td><td class="verdict ok">合格</td><td class="pin">75×</td><td>0.2 A vs 15 A</td></tr>
           <tr class="new"><td>I²C 位址</td><td class="verdict ok">無衝突</td><td class="pin">—</td><td>0x62（SCD41）·0x44（SHT31）·0x70（多工器）·0x20（PCF8574）</td></tr>
-          <tr class="new"><td>電磁鐵同時通電</td><td class="verdict ok">結構性互鎖</td><td class="pin">—</td><td>韌體 <code>ioWrite()</code> 單點檢查位元組，至多一顆</td></tr>
-          <tr class="new"><td>12 V 電源預算</td><td class="verdict ok">合格</td><td class="pin">約 2×</td><td>控制器 0.5 ＋ 風扇 0.2 ＋ 磁鐵 0.5（互鎖後單顆）＋ 霧化 vs 3 A</td></tr>
+          <tr class="new"><td>12 V 電源預算</td><td class="verdict ok">合格</td><td class="pin">約 2.3×</td><td>控制器 0.5 ＋ 風扇 0.2 ＋ 霧化 0.35（估）＝1.05 A vs 可用 2.4 A（3 A × 80%）</td></tr>
           <tr><td>風扇 PWM 頻率</td><td class="verdict warn">需調參</td><td class="pin">—</td><td>預設 490 Hz 會嘯叫，改 25 kHz</td></tr>
           <tr><td>S1 duty = 70</td><td class="verdict warn">待實測</td><td class="pin">—</td><td>可能低於無刷風扇最低啟動占空比</td></tr>
         </tbody>
@@ -420,7 +408,7 @@ Wire1.endTransmission();</div>
           <li><strong>先插 Grove 線</strong>：兩顆感測器上電，序列監控應印出 <code>SCD41:OK SHT31:OK</code></li>
           <li><strong>再接 MAX6675</strong>：確認爐溫讀值 ≈ 室溫 ±3 °C</li>
           <li><strong>上 12 V</strong>：測風扇，並確認未執行 <code>analogWrite</code> 前風扇不轉；
-              電磁鐵逐顆脈衝測試，霧化與罩內燈各切一次</li>
+              霧化與罩內燈各切一次</li>
           <li><strong>接 Pi</strong>：USB 序列（Pi 端認 <code>/dev/r4</code>），確認 mode 由 FALLBACK 轉為 PI</li>
           <li><strong>斷電重上電</strong>：記得 <strong>R4 要手動按電源鍵</strong>才會開機（內建電池設計），
               這是現場上電 SOP 的唯一手動步驟</li>
@@ -439,7 +427,7 @@ PI5/驗證資料流.py</div>
   </section>
 
   <footer>
-    智慧香爐 P0 · 接線圖與電氣驗證 · rev F · 2026-08-10<br>
+    智慧香爐 P0 · 接線圖與電氣驗證 · rev G · 2026-08-16<br>
     完整計算過程見 電路設計/電氣驗證計算.md（風扇段；致動段計算見韌體註解與 mech_params）·
     操作步驟見 P0接線與驗證指南.md · KiCad 真相來源：電路設計/kicad/佈線定義.py
   </footer>

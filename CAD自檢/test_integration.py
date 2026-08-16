@@ -212,26 +212,24 @@ def test_風扇靜壓需大於過濾鏈壓損():
 # ═══════════════════════════════════════════════════════════════
 
 def test_12V匯流排電流不可超過電源供給():
-    """最壞情況：電磁鐵同時作動 ＋ 風扇全速 ＋ 控制器。"""
+    """最壞情況：完整設計（2 顆風扇）全速 ＋ 控制器。"""
     draw = P.total_current_draw_a()
     budget = P.PSU_CURRENT_A * P.PSU_MARGIN
     assert draw <= budget, (
         f"估計總電流 {draw:.2f}A 超過電源可用量 {budget:.2f}A"
-        f"（{P.PSU_CURRENT_A}A × 餘裕 {P.PSU_MARGIN:.0%}）——"
-        f"需加大電源或錯開電磁鐵作動時序")
+        f"（{P.PSU_CURRENT_A}A × 餘裕 {P.PSU_MARGIN:.0%}）——需加大電源")
 
 
 def test_現行配置的12V電流須在電源餘裕內():
     """
     ★驗「現在這台」，不是「未來那台」★
 
-    test_12V匯流排電流不可超過電源供給 算的是完整廟宇爐（2 電磁鐵＋2 風扇），
+    test_12V匯流排電流不可超過電源供給 算的是完整廟宇爐（2 顆風扇），
     那屬 P3。但在它被做出來之前，沒有任何規則在看「桌上型展示機現在夠不夠」——
     而電源不足的症狀是開風扇就重啟，那是實機階段最難查的一類故障。
 
     這裡同時看穩態與峰值：穩態過關不代表開機瞬間過關，
     風扇是無刷馬達，啟動電流是穩態的數倍。
-    （直流電磁鐵反而沒有這個問題——電阻電感負載的電流是指數上升，不會過衝。）
     """
     budget = P.PSU_CURRENT_A * P.PSU_MARGIN
     steady = P.total_current_draw_a("now")
@@ -246,7 +244,7 @@ def test_現行配置的12V電流須在電源餘裕內():
 
 def test_現行風扇數需與電路圖一致():
     """
-    MAGNET_COUNT_NOW / FAN_COUNT_NOW 是「現在實際接了幾個」的宣告，
+    FAN_COUNT_NOW / MIST_COUNT_NOW 是「現在實際接了幾個」的宣告，
     宣告錯了，上面那條電流規則就是拿錯的負載在驗。
     所以直接去數電路圖上的風扇，兩邊對不上就擋下來。
     """
@@ -260,15 +258,14 @@ def test_現行風扇數需與電路圖一致():
     assert n_fan == P.FAN_COUNT_NOW, (
         f"電路圖上有 {n_fan} 顆風扇，但 mech_params 宣告現行配置 "
         f"FAN_COUNT_NOW={P.FAN_COUNT_NOW}——電流預算會驗到錯的負載")
-    # 電磁鐵：陣列在電路圖上是一顆符號，所以★數驅動通道（MAGn 網路）★
-    # 而不是數符號——通道數才是電流預算真正該乘的東西。
-    n_mag = len(set(re.findall(r'"(MAG\d+)"', src)))
-    assert n_mag == P.MAGNET_COUNT_NOW, (
-        f"電路圖上有 {n_mag} 路電磁鐵驅動（MAGn 網路），"
-        f"但宣告 MAGNET_COUNT_NOW={P.MAGNET_COUNT_NOW}——電流預算會乘錯")
     n_mist = len(set(re.findall(r'"(MIST)"', src)))
     assert n_mist == P.MIST_COUNT_NOW, (
         f"電路圖上有 {n_mist} 路霧化驅動，但宣告 MIST_COUNT_NOW={P.MIST_COUNT_NOW}")
+    # 理香機構已移除（2026-08-16）——電路圖上不該再有任何電磁鐵驅動
+    n_mag = len(set(re.findall(r'"(MAG\d+)"', src)))
+    assert n_mag == 0, (
+        f"電路圖上仍有 {n_mag} 路電磁鐵驅動（MAGn 網路），"
+        f"但理香機構已自設計移除——電路殘留未清")
 
 
 def test_完整設計的12V峰值須在電源餘裕內():
@@ -284,66 +281,20 @@ def test_完整設計的12V峰值須在電源餘裕內():
         f"風扇啟動瞬間會觸發過流保護")
 
 
-def test_電源預算依賴的設計約束不可被遺忘():
+def test_韌體不可殘留電磁鐵控制():
     """
-    ★這條在守一個很容易失守的東西★
-    3A 電源夠用的前提是「電磁鐵一次只吸一顆」。這個互鎖若沒做，
-    帳面數字仍然漂亮，實體卻會在兩顆同時吸的瞬間拉到 2.50A 而超出餘裕——
-    症狀是偶發當機，最難查的那一類。
-
-    所以：只要預算依賴互鎖而互鎖還沒實作，就必須出現在待辦清單裡；
-    而且一旦 P3 韌體真的開始驅動電磁鐵，就必須看得到互鎖的實作。
+    理香機構已移除（2026-08-16）——韌體不該再有任何電磁鐵驅動碼。
+    殘留的致動碼比缺功能危險：它還是會對 PCF8574 寫位元，
+    而那些輸出腳現在可能接著別的東西。
+    ★註解不算殘留★ 先剝掉註解再找，只驗真正的程式碼。
     """
-    relies = P.MAGNET_SIMULTANEOUS_MAX < P.MAGNET_COUNT
-    if not relies:
-        return
-
-    pending = P.pending_design_constraints()
-    assert P.MAGNET_INTERLOCK_IMPLEMENTED or pending, (
-        "電源預算依賴電磁鐵互鎖，但互鎖既未實作、也沒被列進待辦清單——"
-        "這個相依關係會被遺忘")
-
     if not INO.exists():
         return
     src = INO.read_text(encoding="utf-8")
-    # ★註解不算實作★ 先把註解剝掉再找——否則一句「一次只吸一顆」的註解
-    #   就能讓這條規則通過，而規則要驗的是程式碼真的有做互鎖。
-    #   （2026-08-07 負向測試發現：拿掉實作但留著註解，規則仍然放行。）
     code = re.sub(r"/\*.*?\*/", "", src, flags=re.S)
     code = re.sub(r"//[^\n]*", "", code)
-    drives_magnet = bool(re.search(r"MAGNET|SOLENOID", code, re.I))
-    has_interlock = bool(re.search(
-        r"MAGNET_SIMULTANEOUS|MASK_MAGNETS|activeMagnets|magnetBusy", code))
-
-    # 旗標宣稱做好了，就必須在韌體裡看得到——
-    # 否則只要把旗標翻成 True 就能讓這條規則失效（等同 §5.2 第 5 條的旗標紅線）
-    if P.MAGNET_INTERLOCK_IMPLEMENTED:
-        assert has_interlock, (
-            "MAGNET_INTERLOCK_IMPLEMENTED 標為 True，但韌體裡找不到互鎖的實作——"
-            "旗標不可先於實作翻開（CLAUDE.md §5.2 第 5 條同理）")
-
-    # 韌體若已經在驅動電磁鐵，互鎖就不能只是「待辦」
-    if drives_magnet:
-            assert has_interlock, (
-                "韌體已經在驅動電磁鐵，但找不到互鎖（一次只吸一顆）的實作——"
-                f"沒有它峰值 {P.MAGNET_COUNT * P.MAGNET_CURRENT_A + P.FAN_COUNT * P.FAN_CURRENT_A * P.FAN_STARTUP_FACTOR + P.CTRL_CURRENT_A:.2f}A "
-                f"會超過電源可用量 {P.PSU_CURRENT_A * P.PSU_MARGIN:.2f}A")
-
-
-def test_列出電源預算的待辦約束():
-    """把待辦印出來，讓它每次跑測試都被看見（不判定成敗）。"""
-    for c in P.pending_design_constraints():
-        print(f"  ★電源預算待辦★ {c}")
-
-
-def test_電磁鐵吸力餘裕在實測前不可寫進報告結論():
-    """
-    標稱 20N 是零氣隙貼合值，有 3mm 氣隙時衰減很大。
-    這條測試不判定吸力夠不夠（那要實測），只確保旗標誠實。
-    """
-    if not P.MAGNET_FORCE_MEASURED:
-        assert P.MAGNET_AIR_GAP > 0, (
-            "氣隙為 0 的假設過於樂觀，且與 MAGNET_AIR_GAP 設計值不符")
+    assert not re.search(r"MAGNET|SOLENOID|magnetPulse|MASK_MAGNETS", code, re.I), (
+        "韌體仍有電磁鐵控制碼，但理香機構已自設計移除——韌體殘留未清")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -420,7 +371,7 @@ def test_鎖固一律使用M4且例外必須有物理理由():
 
 def test_桌上型展示機與廟宇實體爐的尺度需標明差異():
     """
-    mech_params 的 CENSER_INNER_DIA / PLATE_DIA 對應廟宇實體香爐，
+    mech_params 的 CENSER_INNER_DIA 對應廟宇實體香爐，
     外觀 CAD 是桌上型展示機——兩者尺度不同是刻意的，但必須標明，
     否則報告會出現互相矛盾的尺寸。
     """
@@ -428,7 +379,8 @@ def test_桌上型展示機與廟宇實體爐的尺度需標明差異():
         return
     demo_w = SCAD_V.get("CHMB_W", 0)
     if demo_w:
-        assert demo_w != P.PLATE_DIA, "展示機與實體爐尺寸相同，疑似誤用同一組數字"
+        assert demo_w != P.CENSER_INNER_DIA, (
+            "展示機與實體爐尺寸相同，疑似誤用同一組數字")
 
 
 # ═══════════════════════════════════════════════════════════════

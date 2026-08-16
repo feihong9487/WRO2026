@@ -152,8 +152,7 @@ def load_params(src):
             continue
         try:
             # max/min 是 OpenSCAD 內建，參數式常用（例：由最厚的模組推導肋深）
-            # true/false 也是（2026-08-07 起 TIDY_CENTER_HOLE 用到）——
-            #   少了它們，布林參數會走到 except 被靜默略過。
+            # true/false 也是——少了它們，布林參數會走到 except 被靜默略過。
             env[name] = eval(expr, {"__builtins__": {}, "max": max, "min": min,
                                     "true": True, "false": False},
                              dict(env))
@@ -306,7 +305,9 @@ def check_bed(p):
     parts = {
         "base":       (p["BASE_W"], p["BASE_D"], p["BASE_H"]),
         "chamber":    (p["CHMB_W"], p["CHMB_D"], p["CHMB_H"]),
-        "hood":       (p["CHMB_W"], p["CHMB_D"], p["HOOD_H"]),
+        # 漏斗罩最寬處在罩頂開口
+        "hood":       (max(p["CHMB_W"], p["HOOD_TOP_W"]),
+                       max(p["CHMB_D"], p["HOOD_TOP_W"]), p["HOOD_H"]),
         "fan_mount":  (p["FAN_W"] + p["WALL"] * 2, p["FAN_H"] + p["WALL"] * 2,
                        p["FAN_T"] + p["WALL"] * 2 + 10),
         "sensor_pod": (p["POD_W"], p["POD_D"], p["POD_H"]),
@@ -375,17 +376,34 @@ def check_duct_alignment(p):
     if dz < p["WALL"]:
         problems.append(f"F: 煙道開口下緣 z={dz} 太靠近集煙罩底面，"
                         f"至少要留一個壁厚 {p['WALL']:.1f}mm")
-    if dz + DH > HH - p["WALL"]:
-        problems.append(
-            f"F: 煙道開口上緣 z={dz + DH} 超出集煙罩可用高度 "
-            f"{HH - p['WALL']:.1f}mm（罩高 {HH}）——開口會破出頂面或壁太薄")
-    # 開口所在高度，罩子的錐面是否還夠寬容納
-    w_at_top = p["CHMB_W"] - (p["CHMB_W"] - p["HOOD_TOP_W"]) * (dz + DH) / HH
-    need = p["DUCT_W"] + p["PAD_MARGIN"] * 2
-    if w_at_top < need:
-        problems.append(
-            f"F: 煙道開口上緣處集煙罩只剩 {w_at_top:.0f}mm 寬，"
-            f"放不下 {need:.0f}mm 的安裝墊台")
+    # ★漏斗改版（2026-08-16）★ 集煙罩＝下段直筒＋上段外擴喇叭口。
+    #   風扇座法蘭貼的是直筒段的垂直後壁——開口必須★整個落在直筒段內★，
+    #   跑進喇叭段的話後壁是斜的，法蘭貼不平、必漏氣。
+    collar = p.get("HOOD_COLLAR_H")
+    if collar is None:
+        problems.append("F: 參數檔缺 HOOD_COLLAR_H——漏斗罩的直筒段高度沒有宣告，"
+                        "煙道位置檢查驗不下去")
+    else:
+        if dz + DH > collar:
+            problems.append(
+                f"F: 煙道開口上緣 z={dz + DH} 超出直筒段高度 {collar}mm"
+                f"——開口跑進喇叭斜面，風扇座法蘭貼不平")
+        if collar > HH - p["WALL"] * 2:
+            problems.append(
+                f"F: 直筒段 {collar}mm 幾乎佔滿罩高 {HH}mm，喇叭段太矮不成漏斗")
+        # 喇叭斜面角度：超過 45° 倒印時變成無支撐懸空
+        flare_h = HH - collar
+        half_out = (p["HOOD_TOP_W"] - p["CHMB_W"]) / 2
+        if flare_h > 0 and half_out > 0:
+            ang = math.degrees(math.atan2(half_out, flare_h))
+            if ang > 45:
+                problems.append(
+                    f"F: 喇叭斜面與垂直夾角 {ang:.0f}° > 45°——"
+                    f"開口朝下倒印時這個面需要支撐材。降低 HOOD_TOP_W "
+                    f"或縮短 HOOD_COLLAR_H 拉長喇叭段")
+            else:
+                notes.append(f"F: 漏斗口外寬 {p['HOOD_TOP_W']}mm、"
+                             f"直筒段 {collar}mm、喇叭斜面 {ang:.0f}°（倒印自支撐）✓")
     r = duct_z_ranges(p)
     pairs = [("hood", "fan_mount")]
     ok_pairs = []
@@ -446,25 +464,24 @@ CLEAR_HINT = 12      # 與 SCAD 的 CLEAR_MM 一致
 OPENSCAD_CANDIDATES = [
     "/mnt/c/Program Files/OpenSCAD/openscad.exe",
     "/mnt/c/Program Files (x86)/OpenSCAD/openscad.exe",
+    # 筆電是 Windows 原生 Python 跑本檔（沒有 WSL），要用原生路徑
+    "C:/Program Files/OpenSCAD/openscad.exe",
+    "C:/Program Files (x86)/OpenSCAD/openscad.exe",
     "openscad",
 ]
-PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod",
-         "socket_plate", "magnet_deck"]
+PARTS = ["base", "chamber", "hood", "fan_mount", "sensor_pod"]
 
 # ── 外購元件（非列印件）──────────────────────────────────────
 # ★把外購件也放進干涉檢查★ 只驗殼對殼，等於默認「裡面一定塞得下」——
 #   而「裝不進去」是實體組裝最常見的失敗，也是最晚才發現的那一種。
 COMPONENTS = ["bowl", "matrix_r4", "pi5", "d4184", "blower",
               "scd41", "sht31", "max6675", "tc_probe",
-              "sleeves", "magnets", "mist", "hood_led"]
+              "mist", "hood_led"]
 
 # 不納入干涉檢查的元件，以及★為什麼★。
 # 這裡不是用來讓紅字消失的——每一項都必須是「拿它去驗會驗到不存在的東西」，
 # 而不是「驗出來不好看」。（CLAUDE.md §5.2 第 6 條）
 COMP_NO_CHECK = {
-    "sleeves": "套筒★刻意★在孔內留 0.4mm 單邊餘隙讓它能擺動——會擺動才回正得了。"
-               "拿干涉檢查去驗它等於要求它卡死，方向相反。"
-               "孔徑與餘隙另由 test_孔徑必須容納套筒並保留滑動間隙 把關。",
     "tc_probe": "目前沒有任何零件提供熱電偶支架，位置只是交接文件的規格目標，"
                 "不是已落實的設計。等支架做出來再納入檢查。",
 }
@@ -701,8 +718,6 @@ PRINT_ORIENT = {
     "hood":       (180, 0, 0),    # ★開口朝下倒印★
     "fan_mount":  (0, 0, 0),      # 背面朝下
     "sensor_pod": (0, 0, 0),      # 背面朝下
-    "socket_plate": (0, 0, 0),    # 平躺
-    "magnet_deck":  (0, 0, 0),    # 凹槽朝上
 }
 
 # 容許的懸空面積。這些數字不是憑空定的：
@@ -1023,8 +1038,7 @@ def check_clearance():
 #   · F5 預覽：OpenCSG 容忍共平面，看起來還是開的
 #   只有 F6／匯出 STL 才現形，而 STL 正是實際拿去列印的東西。
 THROUGHWAYS = [
-    ("hood_opening", "hood",       "投香口→套筒的插香路徑（插不進去就沒得燒）"),
-    ("hood_opening", "socket_plate", "插孔板的套筒孔（香要穿得過去）"),
+    ("hood_opening", "hood",       "漏斗投香口（插不進去就沒得燒）"),
     ("pod_back",     "sensor_pod", "感測器艙背面（封死就裝不進模組、也走不了線）"),
     ("pod_vent",     "sensor_pod", "感測器通風槽（內側被肋條壓住＝外面看得到孔、裡面不通氣）"),
 ]
