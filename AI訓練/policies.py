@@ -207,8 +207,11 @@ class PredictSchedule:
             self._sched = self._solve(obs, hour, budget)
             self._sched_hour = hour
         duty = self._sched.get(hour, 0)
-        # 反應層：CO2 說現在就有人潮，預測沒跟上 → 升一檔
-        if obs["co2"] and (obs["slope"] > 60.0 or obs["co2"] > 900):
+        # 反應層：CO2 說現在就有人潮，預測沒跟上 → 升一檔。
+        # v2：★預算感知★——電量低於 20% 時不升檔（避免反應層偷吃
+        # DP 排好的預算，重蹈 DQN 提前斷電的覆轍）
+        if (obs["co2"] and (obs["slope"] > 60.0 or obs["co2"] > 900)
+                and obs["battery"] > 0.2):
             i = ACTIONS.index(duty)
             duty = ACTIONS[min(i + 1, len(ACTIONS) - 1)]
         return duty

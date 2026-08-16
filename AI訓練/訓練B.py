@@ -58,11 +58,35 @@ Y = np.array(Y)
 n_tr = 1000 * 24
 Xtr, Ytr, Xva, Yva = X[:n_tr], Y[:n_tr], X[n_tr:], Y[n_tr:]
 
-lam = 1.0
-w = np.linalg.solve(Xtr.T @ Xtr + lam * np.eye(X.shape[1]), Xtr.T @ Ytr)
-pred = np.maximum(0.0, Xva @ w)
-mae = float(np.mean(np.abs(pred - Yva)))
+
+def fit(Xt, Yt, lam):
+    return np.linalg.solve(Xt.T @ Xt + lam * np.eye(X.shape[1]), Xt.T @ Yt)
+
+
+def val_mae(w):
+    return float(np.mean(np.abs(np.maximum(0.0, Xva @ w) - Yva)))
+
+
+# v2 優化一：λ 以驗證集選擇（原固定 1.0）
+lams = [0.1, 1.0, 10.0, 100.0]
+maes = {l: val_mae(fit(Xtr, Ytr, l)) for l in lams}
+lam = min(maes, key=maes.get)
+w = fit(Xtr, Ytr, lam)
+mae = maes[lam]
 base_mae = float(np.mean(np.abs(Yva.mean() - Yva)))   # 常數預測基線
+
+# v2 優化二：學習曲線（訓練天數 vs 驗證 MAE）→ B 的損失變化圖
+curve = []
+for days in (100, 250, 500, 750, 1000):
+    wq = fit(Xtr[:days * 24], Ytr[:days * 24], lam)
+    curve.append([days, val_mae(wq)])
+with open(os.path.join(HERE, "models", "predictorB_history.json"), "w",
+          encoding="utf-8") as f:
+    json.dump({"learning_curve_days_mae": curve,
+               "lambda_sweep": {str(k): round(v, 3) for k, v in maes.items()},
+               "chosen_lambda": lam, "const_baseline_mae": round(base_mae, 3),
+               "note": "★合成資料；MAE 單位＝同時燃燒香支數★"},
+              f, ensure_ascii=False)
 
 os.makedirs(os.path.join(HERE, "models"), exist_ok=True)
 out = os.path.join(HERE, "models", "predictorB.json")

@@ -24,7 +24,10 @@ DIM = len(KEYS)
 N_ACT = 4
 N_PARAM = N_ACT * DIM + N_ACT
 
-POP, ELITE, ITERS, EPS_PER = 24, 6, 15, 2
+POP, ELITE, ITERS = 20, 5, 15
+# v2 優化：★固定配置集★——每代都用同一組 seed（＝同一組域隨機化物理）
+# 評分，跨代分數可比（F35 的根治，而非只在存檔端補救）。
+EVAL_SEEDS = (3000, 3001, 3002, 3003)
 
 
 def unpack(theta):
@@ -48,12 +51,9 @@ rng = np.random.default_rng(42)
 mean = np.zeros(N_PARAM)
 std = np.ones(N_PARAM)
 
-# 注意：各代 seed（＝物理配置）不同，難度差異大，原始分數跨代不可比——
-# 所以★不能挑跨代最高分的候選★（那是挑到最簡單的那一代），
-# 產物取 CEM 收斂後的分布中心 mean。
 history = []
 for it in range(ITERS):
-    seeds = [3000 + it * EPS_PER + k for k in range(EPS_PER)]
+    seeds = EVAL_SEEDS
     cands = mean + std * rng.standard_normal((POP, N_PARAM))
     scores = np.array([np.mean([rollout(c, s) for s in seeds])
                        for c in cands])
@@ -65,21 +65,22 @@ for it in range(ITERS):
           f"mean={scores.mean():.2f}", flush=True)
 
 best_theta = mean
+# 泛化檢查用「未參與訓練評分」的獨立 seed（防對固定配置集過擬合）
 best_score = float(np.mean([rollout(mean, s) for s in (3100, 3101, 3102)]))
-print(f"final mean policy 3-seed score = {best_score:.2f}")
+print(f"final mean policy 獨立3-seed score = {best_score:.2f}")
 
 os.makedirs(os.path.join(HERE, "models"), exist_ok=True)
 out = os.path.join(HERE, "models", "linearA.json")
 final = unpack(best_theta)
-final["train"] = {"algo": "CEM", "iters": ITERS, "pop": POP,
-                  "best_score_1day": round(best_score, 2),
+final["train"] = {"algo": "CEM-v2 固定配置集", "iters": ITERS, "pop": POP,
+                  "eval_seeds": list(EVAL_SEEDS),
+                  "indep_score_1day": round(best_score, 2),
                   "data": "★模擬環境（域隨機化）訓練，非實測★"}
 with open(out, "w", encoding="utf-8") as f:
     json.dump(final, f, ensure_ascii=False, indent=1)
 with open(os.path.join(HERE, "models", "cemA_history.json"), "w",
           encoding="utf-8") as f:
     json.dump({"iters": history,
-               "note": "★各代 seed（物理配置）不同，分數跨代不可比，"
-                       "曲線只看代內 best/mean 差距收斂★"},
+               "note": "v2：固定配置集評分，跨代分數可比（越低越好）"},
               f, ensure_ascii=False)
 print("saved", out)
