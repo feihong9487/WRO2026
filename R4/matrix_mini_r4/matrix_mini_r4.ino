@@ -10,7 +10,7 @@
  *   3. 雙溫度交叉驗證 → conf（1.0 / 0.5），呼應「雙感測冗餘」防線
  *   4. MAX6675 讀爐溫（每 500ms），安全聯鎖：>=T_LOCK 觸發、<=T_RELEASE 解除（遲滯）
  *      熱電偶斷線（NaN）視為感測失效 → 一律進安全態（停止致動）
- *   5. 風扇 PWM（D1左 → D4184 MOSFET → 12V 5015 風扇）
+ *   5. 風扇（M1 5V H 橋馬達埠直驅 5V 風扇；MiniR4.M1.setPower 0-100%）
  *   6. 與 Pi 的 USB 序列協定（115200）：
  *        Pi → 本機：`FAN <0-255>\n` 或 `PING\n`
  *        本機 → Pi：每秒一行 JSON（含感測值＋安全狀態，Pi 據此跑主 FSM）
@@ -36,14 +36,16 @@
  *     MAX6675 SCK  → D4 埠左（腳 13）
  *     MAX6675 SO   → D4 埠右（腳 10）
  *     MAX6675 CS   → D1 埠右（腳 2）
- *     風扇 PWM     → D1 埠左（腳 3，支援 PWM）→ D4184 TRIG
+ *     風扇         → M1 埠（5V H 橋馬達埠，STM32 驅動）→ 5V 風扇
+ *                    ★2026-08-18 改★ 原走 D1左(腳3) PWM→D4184→12V 5015 渦輪；
+ *                    改用 5V 風扇直插 M1，退役 D4184 與 D1 左腳（現為空腳）。
  *     DS18B20      → A2 埠（OneWire 走左腳 A3；函式庫 MXOnewireDT 用埠的左腳）
- *                    ★不能插 D1★ D1 左=風扇 PWM、右=MAX6675 CS，OneWire 會
- *                    反覆翻轉 pinMode，跟兩者都互斥；A1/A2 是僅存的空埠。
+ *                    D1 右仍是 MAX6675 CS；D1 左已空出，但 DS18B20 沿用 A2 不動。
  *     Pi           → USB-C（供電兼序列）
  *
- *   電源：12V 2A 同時餵 MATRIX 電源輸入（板子吃 6-24V）與 D4184 VIN，
- *         共地自動成立。★馬達埠是 5V，推不動 12V 風扇，D4184 必須保留★
+ *   電源：控制器吃 6-24V（原 12V 供電可續用或改 USB 供電，依實裝）。
+ *         風扇改由 M1 供 5V，不再經 D4184。
+ *         ★M1 是 5V 埠，只能配 5V 風扇；若換回 12V 風扇仍需 D4184，勿混接★
  *
  * -----------------------------------------------------------------------------
  * 程式庫（程式庫管理員安裝）：
@@ -99,7 +101,11 @@ inline void muxSelect(uint8_t) {} // 空實作，編譯後不產生程式碼
 const int PIN_TC_SCK = 13;   // D4 埠左
 const int PIN_TC_SO  = 10;   // D4 埠右
 const int PIN_TC_CS  = 2;    // D1 埠右
-const int PIN_FAN    = 3;    // D1 埠左（PWM）→ D4184 TRIG
+// 風扇改由 M1（5V 馬達埠）驅動，見 fanWrite()；D1 左（腳 3）已空出。
+
+// 風扇輸出：控制鏈全程用 0–255 duty（與 Pi 指令、telemetry 一致），
+// 只在這裡換算成 M1 setPower 的 0–100（%）。正值＝送風方向。
+inline void fanWrite(uint8_t duty) { MiniR4.M1.setPower((int16_t)duty * 100 / 255); }
 
 // ---- 門檻（桌面測試值；燃燒艙階段再依實況調整）----
 // 安全層
@@ -447,9 +453,6 @@ void setup()
 {
     Serial.begin(115200);
 
-    pinMode(PIN_FAN, OUTPUT);
-    analogWrite(PIN_FAN, 0);      // 上電先確保風扇停止
-
     baselineInit();               // CO2 背景基線的分鐘桶
     ioWrite(0);                   // 上電先確保所有致動器關閉
 
@@ -457,6 +460,7 @@ void setup()
     // 註：內部有 while(!Mn.begin()) 迴圈，STM32 未就緒會停在這裡——
     //     若板子完全沒反應，先確認 MATRIX 韌體版本與電源。
     MiniR4.begin();
+    MiniR4.M1.setPower(0);        // 上電先確保風扇停止（M1 需 begin 後才能控制）
 
     MiniR4.OLED.clearDisplay();
     MiniR4.OLED.setTextSize(1);
@@ -535,7 +539,7 @@ void loop()
     if (tcFault || interlock) duty = 0;     // 安全聯鎖優先於一切 → 停止致動
 
     outDuty = duty;
-    analogWrite(PIN_FAN, outDuty);
+    fanWrite(outDuty);           // duty 0–255 → M1 setPower 0–100%
 
     // 5) 每秒回報狀態給 Pi ＋ 更新顯示
     if (millis() - lastTick >= TICK_MS) {
