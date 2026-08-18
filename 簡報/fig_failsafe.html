@@ -1,0 +1,49 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><style>
+  :root{--paper:#F8F4EC;--ink:#33302B;--brick:#9E3B2F;--gold:#C9A227;--dark:#2E2A26;--muted:#6f665c;--good:#5a7d5a;}
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;}
+  .wrap{width:1120px;min-height:1180px;background:var(--paper);padding:44px 48px;position:relative;}
+  .head{font-size:26px;font-weight:800;color:var(--muted);margin-bottom:8px;}
+  .head b{color:var(--brick);}
+  .steps{position:relative;}
+  .step{display:flex;align-items:stretch;gap:0;margin-bottom:14px;}
+  .step .n{width:64px;background:var(--brick);color:#fff;font-size:34px;font-weight:900;
+    display:flex;align-items:center;justify-content:center;border-radius:12px 0 0 12px;}
+  .step .fail{flex:1;background:#fff;border:3px solid var(--brick);border-left:none;
+    padding:16px 22px;display:flex;flex-direction:column;justify-content:center;}
+  .step .fail .t{font-size:27px;font-weight:900;color:var(--brick);}
+  .step .arw{width:56px;display:flex;align-items:center;justify-content:center;
+    font-size:34px;color:var(--muted);}
+  .step .safe{flex:1.15;background:#eef2e6;border:3px solid var(--good);
+    padding:16px 22px;border-radius:12px;display:flex;flex-direction:column;justify-content:center;}
+  .step .safe .t{font-size:27px;font-weight:900;color:var(--good);}
+  .colhead{display:flex;gap:0;font-size:22px;font-weight:900;margin:6px 0 12px;}
+  .colhead .a{width:64px;}
+  .colhead .b{flex:1;color:var(--brick);padding-left:22px;}
+  .colhead .c{width:56px;}
+  .colhead .d{flex:1.15;color:var(--good);padding-left:22px;}
+  /* 遞減樓梯縮排，視覺上「往安全方向倒」 */
+  .step:nth-child(2){margin-left:0;}
+  .step:nth-child(3){margin-left:34px;}
+  .step:nth-child(4){margin-left:68px;}
+  .step:nth-child(5){margin-left:102px;}
+  .step:nth-child(6){margin-left:136px;}
+  .foot{margin-top:20px;background:var(--gold);color:var(--dark);border-radius:12px;
+    padding:18px 24px;text-align:center;font-size:26px;font-weight:900;}
+</style></head><body>
+<div class="wrap">
+  <div class="head">故障安全五級階梯　<b>每一層失效，都往「安全」方向倒</b></div>
+  <div class="colhead"><span class="a"></span><span class="b">失效</span><span class="c"></span><span class="d">系統反應（往安全倒）</span></div>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="fail"><div class="t">雲端中斷</div></div>
+      <div class="arw">→</div><div class="safe"><div class="t">決策層本地續跑・斷線補傳</div></div></div>
+    <div class="step"><div class="n">2</div><div class="fail"><div class="t">決策層（Pi）失效</div></div>
+      <div class="arw">→</div><div class="safe"><div class="t">即時層 5 秒逾時・以 CO₂ 接手</div></div></div>
+    <div class="step"><div class="n">3</div><div class="fail"><div class="t">感測失效</div></div>
+      <div class="arw">→</div><div class="safe"><div class="t">回報 −99.9 故障值・安全態優先</div></div></div>
+    <div class="step"><div class="n">4</div><div class="fail"><div class="t">超溫／熱電偶失效</div></div>
+      <div class="arw">→</div><div class="safe"><div class="t">就地聯鎖・風扇 PWM 歸零</div></div></div>
+    <div class="step"><div class="n">5</div><div class="fail"><div class="t">全系統斷電</div></div>
+      <div class="arw">→</div><div class="safe"><div class="t">香爐回復傳統使用（故障安全）</div></div></div>
+  </div>
+  <div class="foot">最壞情況也只是「回到一台普通香爐」——絕不反過來害人</div>
+</div></body></html>
