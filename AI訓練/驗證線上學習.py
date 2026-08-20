@@ -159,6 +159,41 @@ sc3 = svc.score_anomaly(am, synth_minutely(drop_last_hour=True), now)
 check("最近一小時斷流 → 缺料旗標", sc3["dropout"] >= svc.DROPOUT_ALARM
       and sc3["flag"] == 1, f"dropout={sc3['dropout']}")
 
+print("== 6b. v5 擴充：ACH 反演／爐溫偏差／農曆自動檢驗 ==")
+# 合成指數衰減：已知 λ=1.5/h、C_bg=450，反演須還原
+lam_true, cbg_true = 1.5, 450.0
+co2_syn = [(now - timedelta(hours=3) + timedelta(minutes=2 * i),
+            cbg_true + 900.0 * math.exp(-lam_true * (2 * i) / 60.0))
+           for i in range(90)]
+fits = svc.decay_ach(co2_syn)
+check("合成衰減段還原 λ（誤差<10%）",
+      len(fits) == 1 and abs(fits[0][1] - lam_true) / lam_true < 0.10,
+      f"fits={fits}")
+flat = [(t, 500.0) for t, _ in co2_syn]
+check("平坦資料不產生假衰減段", svc.decay_ach(flat) == [])
+
+st_ach = {}
+m_ach = {"co2": co2_syn}
+for k in range(9):                      # 累積 9 段歷史 → z 可算
+    st_ach.setdefault("ach_history", {})[f"2026-08-{k+1:02d}T00:00+00:00"] = 1.2
+latest, z, n_ = svc.update_ach(st_ach, m_ach)
+check("ACH 歷史累積與 z 計算", latest is not None and n_ >= 9 and z is not None,
+      f"latest={latest} z={z} n={n_}")
+
+am5 = svc.retrain_anomaly(hourly, {**normal,
+                                   "t_ds": [(t, 25.6 + 0.05 * ((i % 7) - 3) / 30)
+                                            for i, (t, _) in
+                                            enumerate(normal["t_sht"])]}, {})
+check("v5 模型含爐溫偏差統計", "tds_bias" in am5)
+sc5 = svc.score_anomaly(am5, {**normal, "t_ds": [(t, v + 0.1) for t, v in
+                                                 normal["t_sht"]]}, now)
+check("爐溫偏差欄位有值", sc5["tds_bias"] is not None)
+
+lc = svc.lunar_check([(t, y) for (t, _), y in
+                      zip(hourly[:200], [1.0] * 200)])
+check("農曆檢驗：資料不足時回報進度不下結論",
+      "verdict" not in lc and lc["span_days"] < 55, f"span={lc['span_days']}")
+
 print("== 7. 誠實標註 ==")
 check("預測模型帶誠實邊界字串", "代理量" in m["meta"]["honesty"]
       and "影子" in m["meta"]["honesty"])

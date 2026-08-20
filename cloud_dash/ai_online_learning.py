@@ -397,6 +397,68 @@ def retrain_predictor(hourly, state):
         "open*weekend", "open*lp"], "meta": meta}, meta
 
 
+# ── 衰減段 ACH 反演（v5：AI-2 的通風/濾材狀態訊號）────────────
+# 無源段 dC/dt = -λ(C - C_bg) 之指數擬合；方法與 AI訓練/ACH反演.py 同構。
+# ★居家推估值非實測；ACH 變化＝通風狀態改變（開窗/濾材/風扇），
+#   資訊性訊號不觸發異常旗標★
+def decay_ach(co2_min):
+    """[(t, co2)] → [(段起始 ts, ACH/h, R²)]，只收 R²≥0.95。"""
+    if len(co2_min) < 30:
+        return []
+    t0 = co2_min[0][0]
+    pts = sorted((int((t - t0).total_seconds() // 60), v) for t, v in co2_min)
+    sm = []
+    for idx, (k, _) in enumerate(pts):
+        win = [v for k2, v in pts[max(0, idx - 2):idx + 3] if abs(k2 - k) <= 5]
+        if len(win) >= 3:
+            sm.append((k, median(win)))
+    ks = [k for k, _ in sm]
+    vs = [v for _, v in sm]
+    out, i = [], 0
+    while i < len(ks) - 10:
+        j15 = i
+        while j15 < len(ks) and ks[j15] < ks[i] + 15:
+            j15 += 1
+        if j15 >= len(ks) or ks[j15] - ks[i] > 20 or vs[i] - vs[j15] <= 8:
+            i += 1
+            continue
+        j, seg_min = i, vs[i]
+        while j < len(ks) - 1:
+            if ks[j + 1] - ks[j] > 10:
+                break
+            seg_min = min(seg_min, vs[j])
+            if vs[j + 1] - seg_min > 15:
+                break
+            j += 1
+        if ks[j] - ks[i] >= 45 and vs[i] - vs[j] >= 100:
+            ts = [(ks[x] - ks[i]) / 60.0 for x in range(i, j + 1)]
+            cs = vs[i:j + 1]
+            best = None
+            cbg = min(cs) - 120.0
+            while cbg < min(cs) - 4:
+                y = [c - cbg for c in cs]
+                if min(y) > 0:
+                    ln = [math.log(v) for v in y]
+                    sl = lsq_slope(list(zip(ts, ln)))
+                    mt = sum(ts) / len(ts)
+                    ml = sum(ln) / len(ln)
+                    pred = [ml + sl * (t - mt) for t in ts]
+                    ss_r = sum((a - b) ** 2 for a, b in zip(ln, pred))
+                    ss_t = sum((a - ml) ** 2 for a in ln) or 1e-9
+                    r2 = 1 - ss_r / ss_t
+                    if sl < 0 and (best is None or r2 > best[2]):
+                        best = (-sl, cbg, r2)
+                cbg += 4.0
+            if best and best[2] >= 0.95:
+                start = t0 + timedelta(minutes=ks[i])
+                out.append((start.astimezone(timezone.utc)
+                            .isoformat(timespec="minutes"),
+                            round(best[0], 3), round(best[2], 4)))
+            i = j
+        i += 1
+    return out
+
+
 # ── AI-2：異常偵測（穩健統計，滾動重訓＝持續自我學習）─────────
 def retrain_anomaly(hourly, minutely, state):
     elev = daily_elevation(hourly)
@@ -419,6 +481,7 @@ def retrain_anomaly(hourly, minutely, state):
 
     t_bias_daily = daily_median_bias("t_scd", "t_sht")
     rh_bias_daily = daily_median_bias("rh_scd", "rh_sht")
+    tds_bias_daily = daily_median_bias("t_ds", "t_sht")   # v5：DS18B20 爐溫
     co2_daily_min = {}
     for t, v in hourly:
         d = t.astimezone(TPE).date()
@@ -431,6 +494,8 @@ def retrain_anomaly(hourly, minutely, state):
                    "mad": round(mad(list(t_bias_daily.values()) or [0.0]), 3)},
         "rh_bias": {"med": round(median(list(rh_bias_daily.values()) or [0.0]), 3),
                     "mad": round(mad(list(rh_bias_daily.values()) or [0.0]), 3)},
+        "tds_bias": {"med": round(median(list(tds_bias_daily.values()) or [0.0]), 3),
+                     "mad": round(mad(list(tds_bias_daily.values()) or [0.0]), 3)},
         "co2_min_slope_ppm_day": round(lsq_slope(
             [(i, v) for i, (d, v) in enumerate(sorted(co2_daily_min.items()))]), 2),
         "window_days": ANOM_WINDOW_DAYS,
@@ -453,7 +518,15 @@ def score_anomaly(model, minutely, now=None):
 
     out = {}
     co2_1h = recent("co2", h1)
-    out["dropout"] = round(1.0 - min(1.0, len(co2_1h) / 60.0), 3)
+    # 期望樣本數依實際取樣節奏推算（直連=1min、公開 API 可能 2min+）
+    co2_all = minutely.get("co2", [])
+    if len(co2_all) >= 10:
+        gaps = sorted((b[0] - a[0]).total_seconds()
+                      for a, b in zip(co2_all, co2_all[1:]))
+        cadence = max(60.0, gaps[len(gaps) // 2])
+    else:
+        cadence = 60.0
+    out["dropout"] = round(1.0 - min(1.0, len(co2_1h) / (3600.0 / cadence)), 3)
 
     co2_24 = recent("co2", h24)
     z_co2 = 0.0
@@ -478,10 +551,14 @@ def score_anomaly(model, minutely, now=None):
 
     z_t, t_cur = bias_z("t_scd", "t_sht", "t_bias")
     z_rh, rh_cur = bias_z("rh_scd", "rh_sht", "rh_bias")
+    z_tds, tds_cur = (bias_z("t_ds", "t_sht", "tds_bias")
+                      if "tds_bias" in model else (0.0, None))
     out["t_bias"] = round(t_cur, 2) if t_cur is not None else None
     out["t_bias_z"] = round(z_t, 2)
     out["rh_bias"] = round(rh_cur, 2) if rh_cur is not None else None
     out["rh_bias_z"] = round(z_rh, 2)
+    out["tds_bias"] = round(tds_cur, 2) if tds_cur is not None else None
+    out["tds_bias_z"] = round(z_tds, 2)
 
     # 實際 < 指令＝風扇失效代理；實際 > 指令＝R4 安全接管（CO₂ 硬警報
     # 全速等），是預期行為 → 只回報比例、不當異常。
@@ -501,12 +578,76 @@ def score_anomaly(model, minutely, now=None):
     out["safety_override"] = override
 
     out["co2_drift_ppm_day"] = model.get("co2_min_slope_ppm_day", 0.0)
-    zs = [abs(z_co2), abs(z_t), abs(z_rh)]
+    zs = [abs(z_co2), abs(z_t), abs(z_rh), abs(z_tds)]
     out["score"] = round(max(zs), 2)
     out["flag"] = int(out["score"] >= Z_ALARM
                       or out["dropout"] >= DROPOUT_ALARM
                       or (mism is not None and mism >= DUTY_MISMATCH_ALARM))
     return out
+
+
+# ── v5：ACH 歷史追蹤 ＋ 農曆特徵自動檢驗 ─────────────────────
+def update_ach(state, minutely):
+    """反演近 26h 衰減段 → 累積歷史 → 最新值對歷史的穩健 z。"""
+    hist = state.setdefault("ach_history", {})
+    for ts, ach, _ in decay_ach(minutely.get("co2", [])):
+        hist[ts] = ach
+    if len(hist) > 300:
+        for k in sorted(hist)[:-300]:
+            del hist[k]
+    vals = [hist[k] for k in sorted(hist)]
+    if not vals:
+        return None, None, 0
+    z = None
+    if len(vals) >= 8:
+        ref = vals[:-1]
+        z = round((vals[-1] - median(ref)) / max(mad(ref), 0.1), 2)
+    return vals[-1], z, len(vals)
+
+
+def lunar_check(data):
+    """D 項：資料跨 ≥55 天時自動重跑「農曆 vs 趨勢」對照
+    （2026-08-20《優化實驗》證明短資料上農曆=漂移伪影；本函式在
+    資料足夠時自動重驗，人只看結果不用記得排程）。"""
+    if len(data) < 2:
+        return {"span_days": 0.0}
+    span = round((data[-1][0] - data[0][0]).total_seconds() / 86400, 1)
+    res = {"span_days": span, "threshold_days": 55}
+    if span < 55 or len(data) < 800:
+        return res
+    y0 = data[0][0]
+
+    def xrow(t, kind):
+        b = feats_at(t - WIN_CENTER)
+        if kind == "lunar":
+            ph = 2 * math.pi * lunar_day(t.timestamp()) / SYN
+            return b + [math.sin(ph), math.cos(ph)]
+        if kind == "trend":
+            return b + [(t - y0).total_seconds() / 86400 / 30.0]
+        return b
+
+    Y = [y for _, y in data]
+    maes = {}
+    for kind in ("base", "trend", "lunar"):
+        X = [xrow(t, kind) for t, _ in data]
+        errs = []
+        for frac in (0.55, 0.65, 0.75, 0.85):
+            cut = int(len(X) * frac)
+            te = min(len(X), int(len(X) * (frac + 0.10)))
+            w = ridge_fit(X[:cut], Y[:cut], 10.0)
+            errs.append(sum(abs(predict(w, x) - y)
+                            for x, y in zip(X[cut:te], Y[cut:te])) / max(1, te - cut))
+        maes[kind] = sum(errs) / len(errs)
+    res["cv_mae"] = {k: round(v, 3) for k, v in maes.items()}
+    res["lunar_gain_pct"] = round(100 * (maes["base"] - maes["lunar"])
+                                  / maes["base"], 1)
+    res["trend_gain_pct"] = round(100 * (maes["base"] - maes["trend"])
+                                  / maes["base"], 1)
+    res["verdict"] = ("農曆增益顯著且非趨勢可替代——值得人工複核後納入特徵"
+                      if res["lunar_gain_pct"] > 5
+                      and res["lunar_gain_pct"] > res["trend_gain_pct"] + 3
+                      else "農曆無獨立增益（或仍與趨勢混淆）——維持 CAL-12")
+    return res
 
 
 # ── 狀態寫入 InfluxDB（line protocol；僅直連模式可寫）─────────
@@ -602,6 +743,17 @@ def cycle(src, state, do_retrain, no_write):
               f"t偏差 {am['t_bias']['med']}±{am['t_bias']['mad']}°C、"
               f"CO₂基線漂移 {am['co2_min_slope_ppm_day']} ppm/day")
 
+        # D 項：農曆特徵自動檢驗（資料 ≥55 天才有結論，之前回報進度）
+        lc = lunar_check([(t, max(0.0, e / PPM_PER_STICK))
+                          for t, e in daily_elevation(hourly)])
+        save_json(lc, os.path.join(MODELS_DIR, "lunar_check.json"))
+        state["lunar_check"] = lc
+        if "verdict" in lc:
+            print(f"  農曆自動檢驗：{lc['verdict']}（農曆 {lc['lunar_gain_pct']}% "
+                  f"vs 趨勢 {lc['trend_gain_pct']}%）")
+        else:
+            print(f"  農曆自動檢驗：資料 {lc['span_days']}/55 天，累積中")
+
     # AI-1 即時狀態
     pm = load_json(os.path.join(MODELS_DIR, "ai_predictor_real.json"))
     if pm:
@@ -641,6 +793,16 @@ def cycle(src, state, do_retrain, no_write):
         status["ai2_duty_mismatch"] = sc["duty_mismatch"]
         status["ai2_safety_override"] = sc["safety_override"]
         status["ai2_co2_drift"] = sc["co2_drift_ppm_day"]
+        status["ai2_tds_bias"] = sc["tds_bias"]
+        status["ai2_tds_bias_z"] = sc["tds_bias_z"]
+        ach, ach_z, ach_n = update_ach(state, minutely)
+        status["ai2_ach"] = ach
+        status["ai2_ach_z"] = ach_z
+        status["ai2_ach_n"] = ach_n
+        lc = state.get("lunar_check", {})
+        status["ai1_lunar_span_d"] = lc.get("span_days")
+        status["ai1_lunar_gain_pct"] = lc.get("lunar_gain_pct")
+        status["ai1_trend_gain_pct"] = lc.get("trend_gain_pct")
         print(f"  AI-2 評分：score={sc['score']} flag={sc['flag']} "
               f"(co2_z={sc['co2_z']} t_z={sc['t_bias_z']} rh_z={sc['rh_bias_z']} "
               f"缺料率={sc['dropout']:.0%} 失效差={sc['duty_mismatch']} "
