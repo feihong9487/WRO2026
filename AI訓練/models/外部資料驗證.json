@@ -1,0 +1,24 @@
+{
+ "dataset": "UCI 864 Room Occupancy Estimation（辦公室測試間，非廟宇）",
+ "n": 10129,
+ "V1_corr_steady": 0.711,
+ "V1_corr_instant": 0.659,
+ "V1_ppm_per_person": 174.5,
+ "V1_median_elev_by_count": {
+  "0": 5.0,
+  "1": 115.0,
+  "2": 335.0,
+  "3": 560.0
+ },
+ "V1_monotonic": true,
+ "V2_arrival_events": 4,
+ "V2_slope_first_frac": 0.5,
+ "V2_median_lead_min": -0.8,
+ "V3_false_positive_rate": 0.0,
+ "verdicts": {
+  "V1": "pass",
+  "V2": "inconclusive",
+  "V3": "pass"
+ },
+ "honesty": "機制驗證（穩態單調性/前饋領先/誤報率），非 26ppm 常數之驗證；常數依場域體積與換氣率而異，仍以本爐實測為準"
+}

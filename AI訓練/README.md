@@ -24,6 +24,8 @@
 | `policies.py` | 部署級推論（純 stdlib）：A 線性、C MLP、B 預測+DP、強基線日曆規則 |
 | `訓練A.py` / `訓練B.py` / `訓練C.py` | 三案訓練器（筆電端可用 numpy；產物一律 JSON 到 `models/`） |
 | `評比.py` | 凍結協定的執行檔（10 驗證 seed × 3 天 × 域隨機化） |
+| `驗證線上學習.py` | 線上學習服務自檢：特徵同構（vs Pi 端 ShadowAdvisor）、守門條款、異常偵測單元檢查 |
+| `外部資料驗證.py` | UCI 864 公開資料集對兩 AI 核心機制之獨立驗證（V1 pass／V2 inconclusive／V3 pass） |
 
 ## 快速開始
 

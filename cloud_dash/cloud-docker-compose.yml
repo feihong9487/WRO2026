@@ -53,7 +53,23 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=incense12345
 
+  # 兩個 AI 的線上自我學習服務（負載預測重訓＋異常偵測；純 stdlib 零相依）
+  # 每 5 分鐘評分寫 ai_status、每 6 小時以 aroma01 實測資料重訓。
+  ai-online:
+    image: python:3.12-alpine
+    container_name: ai-online
+    restart: unless-stopped
+    depends_on:
+      - influxdb
+    environment:
+      - INFLUX_URL=http://influxdb:8086
+    volumes:
+      - ./ai_online_learning.py:/app/ai_online_learning.py:ro
+      - ai-models:/app/ai_models
+    command: python /app/ai_online_learning.py --serve
+
 volumes:
   mosq-data:
   influxdb-data:
   grafana-data:
+  ai-models:
