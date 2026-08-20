@@ -1,0 +1,65 @@
+<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><style>
+  :root{--paper:#F8F4EC;--ink:#33302B;--brick:#9E3B2F;--gold:#C9A227;--dark:#2E2A26;--muted:#6f665c;--tan:#c9a86f;}
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft JhengHei","Noto Sans TC",sans-serif;}
+  .wrap{width:1080px;min-height:1440px;background:var(--paper);padding:44px 46px;}
+  .layer{background:#fff;border:3px solid var(--dark);border-radius:14px;padding:20px 24px;position:relative;}
+  .layer .tag{position:absolute;left:-3px;top:-3px;background:var(--dark);color:var(--paper);
+    font-size:23px;font-weight:900;padding:8px 18px;border-radius:12px 0 14px 0;}
+  .layer .body{margin-top:34px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;}
+  .pill{background:var(--paper);border:2px solid var(--tan);border-radius:999px;
+    padding:9px 18px;font-size:24px;font-weight:800;color:var(--ink);}
+  .pill.hot{border-color:var(--brick);color:var(--brick);}
+  .pill.key{background:var(--gold);border-color:var(--gold);color:var(--dark);}
+  .desc{font-size:20px;color:var(--muted);margin-top:10px;line-height:1.4;}
+  .arrow{display:flex;flex-direction:column;align-items:center;margin:6px 0;color:var(--brick);}
+  .arrow .a{font-size:34px;line-height:1;}
+  .arrow .l{font-size:19px;color:var(--muted);font-weight:700;}
+  .l1{border-color:var(--brick);} .l1 .tag{background:var(--brick);}
+  .l4{border-color:var(--gold);} .l4 .tag{background:var(--gold);color:var(--dark);}
+  .cloud{background:var(--dark);color:var(--paper);border-radius:14px;padding:18px 24px;text-align:center;
+    font-size:23px;font-weight:800;}
+  .cloud b{color:var(--gold);}
+  .loop{text-align:center;font-size:19px;color:var(--brick);font-weight:800;margin-top:12px;}
+</style></head><body>
+<div class="wrap">
+  <div class="layer l1"><div class="tag">感測層</div>
+    <div class="body">
+      <span class="pill">SCD41 CO₂</span><span class="pill">SHT31 溫濕</span>
+      <span class="pill">MAX6675 爐溫</span><span class="pill">DS18B20</span><span class="pill">PM</span>
+    </div>
+    <div class="desc">爐口／呼吸帶／進出風口三點量測</div>
+  </div>
+
+  <div class="arrow"><div class="l">I²C · 1 Hz</div><div class="a">↓</div></div>
+
+  <div class="layer"><div class="tag">即時／安全層　MATRIX Mini R4</div>
+    <div class="body">
+      <span class="pill">FSM 四態</span><span class="pill key">CO₂ 前饋削峰</span>
+      <span class="pill hot">超溫就地聯鎖</span>
+    </div>
+    <div class="desc">安全聯鎖只靠本層直讀感測，不依賴跨板通訊</div>
+  </div>
+
+  <div class="arrow"><div class="l">USB 序列 ↑↓</div><div class="a">↕</div></div>
+
+  <div class="layer"><div class="tag">決策層　Raspberry Pi 5</div>
+    <div class="body"><span class="pill">主 FSM 決策</span><span class="pill">上雲稽核</span></div>
+    <div class="desc">複雜但非即時的決策；失效時由即時層 5 秒逾時接手</div>
+  </div>
+
+  <div class="arrow"><div class="l">PWM</div><div class="a">↓</div></div>
+
+  <div class="layer l4"><div class="tag">機構層</div>
+    <div class="body">
+      <span class="pill">漏斗大口集煙罩</span><span class="pill">→</span>
+      <span class="pill hot">雙級抽排：4020 罩口 ＋ 5015 濾箱</span><span class="pill">→</span>
+      <span class="pill">紗網→HEPA→活性碳</span>
+    </div>
+    <div class="desc">捕集 → 抽排 → 過濾；過濾順序即安全（金屬紗網先擋火星）</div>
+  </div>
+
+  <div class="arrow"><div class="l">MQTT</div><div class="a">↓</div></div>
+
+  <div class="cloud">雲端稽核　<b>MQTT → InfluxDB → 公開儀表板</b>（每秒入庫・可掃碼看）</div>
+  <div class="loop">↑ 閉環：感測 → 決策 → 致動 → 上雲 → 回饋修正 ↑</div>
+</div></body></html>

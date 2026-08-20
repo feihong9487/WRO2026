@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480mm" height="175mm" viewBox="0 0 1920 700" font-family="'Noto Sans TC','Source Han Sans TC','Microsoft JhengHei',sans-serif">
+<rect width="1920" height="700" fill="#ffffff"/>
+<text x="12.0" y="24.0" font-size="28" fill="#7a3b2e" font-weight="700" text-anchor="start">商業模式九宮格</text>
+<text x="1908.0" y="24.0" font-size="20" fill="#898781" font-weight="400" text-anchor="end">⚠＝未經市場驗證之假設</text>
+<line x1="12" y1="26" x2="1908" y2="26" stroke="#7a3b2e" stroke-width="2"/>
+<rect x="12.0" y="34.0" width="369.6" height="440.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="24.0" y="64.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">關鍵夥伴</text>
+<text x="24.0" y="96.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">廟方管委會（共同認定</text>
+<text x="24.0" y="122.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">　h_min，非團隊自訂）</text>
+<text x="24.0" y="148.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">感測器與風機供應商</text>
+<text x="24.0" y="174.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">⚠ 地方政府：設備補助</text>
+<text x="24.0" y="200.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">　核銷通路（未驗證）</text>
+<rect x="393.6" y="34.0" width="369.6" height="214.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="405.6" y="64.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">關鍵活動</text>
+<text x="405.6" y="96.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">罩體幾何設計與流體驗證</text>
+<text x="405.6" y="122.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">特性曲線實測</text>
+<text x="405.6" y="148.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">　η(u)／h(u)／SPL(u)</text>
+<text x="405.6" y="174.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">雲端資料鏈維運</text>
+<text x="405.6" y="200.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">濾材配送與更換</text>
+<rect x="393.6" y="260.0" width="369.6" height="214.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="405.6" y="290.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">關鍵資源</text>
+<text x="405.6" y="322.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">215 mm 罩口＋三面側裙</text>
+<text x="405.6" y="348.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">雙控制器架構（Pi 5＋R4）</text>
+<text x="405.6" y="374.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">歸一化 KPI 與雲端稽核鏈</text>
+<text x="405.6" y="400.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">四層驗證體系（L1–L4）</text>
+<rect x="775.2" y="34.0" width="369.6" height="440.0" rx="6" fill="#ffffff" stroke="#2a78d6" stroke-width="1.5"/>
+<text x="787.2" y="64.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">價值主張</text>
+<text x="787.2" y="96.0" font-size="20" fill="#0b0b0b" font-weight="700" text-anchor="start">不改變焚香行為的減污</text>
+<text x="787.2" y="122.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">——爐口點源捕集</text>
+<text x="787.2" y="148.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start"></text>
+<text x="787.2" y="174.0" font-size="20" fill="#0b0b0b" font-weight="700" text-anchor="start">可被證明的乾淨：歸一化</text>
+<text x="787.2" y="200.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">KPI 產出可歸因的減量數據</text>
+<text x="787.2" y="226.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start"></text>
+<text x="787.2" y="252.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">以 1/11.5 的風量達成</text>
+<text x="787.2" y="278.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">3.22× 減量（設計值）</text>
+<rect x="1156.8" y="34.0" width="369.6" height="214.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="1168.8" y="64.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">顧客關係</text>
+<text x="1168.8" y="96.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">廟方可公開展示的</text>
+<text x="1168.8" y="122.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">即時空品看板（即文宣）</text>
+<text x="1168.8" y="148.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">濾材更換週期與農曆</text>
+<text x="1168.8" y="174.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">維運節奏天然耦合</text>
+<rect x="1156.8" y="260.0" width="369.6" height="214.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="1168.8" y="290.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">通路</text>
+<text x="1168.8" y="322.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">公部門補助核銷</text>
+<text x="1168.8" y="348.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">——2017 宮廟聯盟主動</text>
+<text x="1168.8" y="374.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">　要求政府輔導添購設備</text>
+<text x="1168.8" y="400.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">⚠ 廟宇社群口碑（未驗證）</text>
+<rect x="1538.4" y="34.0" width="369.6" height="440.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="1550.4" y="64.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">目標客群</text>
+<text x="1550.4" y="96.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">B2B 單一決策者＝</text>
+<text x="1550.4" y="122.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">廟方管理委員會</text>
+<text x="1550.4" y="148.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start"></text>
+<text x="1550.4" y="174.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">中小型宮廟——被現行</text>
+<text x="1550.4" y="200.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">最佳方案（500 萬元）</text>
+<text x="1550.4" y="226.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">排除在外的絕大多數</text>
+<rect x="12.0" y="486.0" width="751.2" height="170.0" rx="6" fill="#ffffff" stroke="#e1e0d9" stroke-width="1.5"/>
+<text x="24.0" y="516.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">成本結構</text>
+<text x="24.0" y="548.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">原型 BOM &lt; NT$4,200（單機物料成本，非量產售價）</text>
+<text x="24.0" y="574.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">濾材耗材｜佈建與維運｜⚠ 量產成本結構未驗證</text>
+<rect x="775.2" y="486.0" width="1132.8" height="170.0" rx="6" fill="#ffffff" stroke="#2a78d6" stroke-width="1.5"/>
+<text x="787.2" y="516.0" font-size="24" fill="#7a3b2e" font-weight="700" text-anchor="start">收益流</text>
+<text x="787.2" y="548.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">設備銷售（一次性）｜濾材耗材訂閱（經常性）</text>
+<text x="787.2" y="574.0" font-size="20" fill="#52514e" font-weight="400" text-anchor="start">空品數據服務：ESG 揭露／碳盤查／補助核銷（經常性）</text>
+<text x="12.0" y="690.0" font-size="18" fill="#898781" font-weight="400" text-anchor="start">數值引自第 III 張 XVI 節與表 12；BOM 為原型單機物料成本，非量產售價</text>
+<text x="1908.0" y="690.0" font-size="18" fill="#898781" font-weight="400" text-anchor="end">產生_商業與發散圖.py</text>
+</svg>

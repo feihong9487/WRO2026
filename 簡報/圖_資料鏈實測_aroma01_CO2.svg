@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="165mm" height="95mm" viewBox="0 0 660 380" font-family="'Noto Sans TC','Source Han Sans TC','Microsoft JhengHei',sans-serif">
+<rect width="660" height="380" fill="#ffffff"/>
+<line x1="104" y1="272.0" x2="632" y2="272.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="96" y="280.0" font-size="24" fill="#52514e" text-anchor="end">500</text>
+<line x1="104" y1="202.0" x2="632" y2="202.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="96" y="210.0" font-size="24" fill="#52514e" text-anchor="end">1,000</text>
+<line x1="104" y1="132.0" x2="632" y2="132.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="96" y="140.0" font-size="24" fill="#52514e" text-anchor="end">1,500</text>
+<line x1="104" y1="62.0" x2="632" y2="62.0" stroke="#e1e0d9" stroke-width="1"/>
+<text x="96" y="70.0" font-size="24" fill="#52514e" text-anchor="end">2,000</text>
+<line x1="140.7" y1="34" x2="140.7" y2="300" stroke="#e1e0d9" stroke-width="1"/>
+<text x="140.7" y="330" font-size="24" fill="#52514e" text-anchor="middle">8/13</text>
+<line x1="266.4" y1="34" x2="266.4" y2="300" stroke="#e1e0d9" stroke-width="1"/>
+<text x="266.4" y="330" font-size="24" fill="#52514e" text-anchor="middle">8/14</text>
+<line x1="392.2" y1="34" x2="392.2" y2="300" stroke="#e1e0d9" stroke-width="1"/>
+<text x="392.2" y="330" font-size="24" fill="#52514e" text-anchor="middle">8/15</text>
+<line x1="517.9" y1="34" x2="517.9" y2="300" stroke="#e1e0d9" stroke-width="1"/>
+<text x="517.9" y="330" font-size="24" fill="#52514e" text-anchor="middle">8/16</text>
+<line x1="104" y1="300" x2="632" y2="300" stroke="#52514e" stroke-width="1.5"/>
+<polyline points="104.0,150.0 109.2,144.4 114.5,122.5 119.7,173.7" fill="none" stroke="#2a78d6" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="240.2,206.0 245.5,183.5 250.7,166.9 255.9,128.2 261.2,116.2 266.4,105.6 271.7,114.8 276.9,140.9 282.1,150.8 287.4,163.1 292.6,165.0 297.9,179.0 303.1,201.6 308.3,205.5 313.6,240.2 318.8,262.2 324.1,260.8 329.3,259.0 334.5,258.3 339.8,254.9 345.0,251.9 350.3,246.7 355.5,237.3 360.7,236.5 366.0,247.8 371.2,245.8 376.5,246.8 381.7,253.6 386.9,257.4 392.2,258.4 397.4,258.6 402.7,257.2 407.9,255.8 413.1,256.3 418.4,255.7 423.6,254.6 428.9,253.4 434.1,253.4 439.3,252.9 444.6,248.4 449.8,251.6 455.1,255.4 460.3,246.1 465.5,232.9 470.8,189.1" fill="none" stroke="#2a78d6" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="586.0,213.1 591.3,166.8 596.5,106.9 601.8,59.6 607.0,45.3 612.2,101.7 617.5,106.9 622.7,115.0 628.0,89.3 632.0,70.7" fill="none" stroke="#2a78d6" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="118" y="49.4" font-size="26" font-weight="600" fill="#2a78d6">aroma01 實測 CO₂</text>
+<circle cx="607.0" cy="45.3" r="5" fill="#2a78d6"/>
+<text x="632.0" y="31.3" font-size="24" fill="#0b0b0b" text-anchor="end">2,119</text>
+<circle cx="318.8" cy="262.2" r="5" fill="#2a78d6"/>
+<text x="332.8" y="288.2" font-size="24" fill="#0b0b0b" text-anchor="start">570</text>
+<text x="30" y="167.0" font-size="26" fill="#52514e" text-anchor="middle" transform="rotate(-90 30 167.0)">CO₂（ppm）</text>
+<text x="104" y="348" font-size="18" fill="#898781">台北時間｜n = 59 小時樣本｜3 個開機區間（空窗＝未開機）</text>
+<text x="104" y="372" font-size="20" font-weight="600" fill="#0b0b0b">★居家環境 CO₂，非廟宇負載★</text>
+<text x="632" y="372" font-size="18" fill="#898781" text-anchor="end">產生_資料鏈實測圖.py</text>
+</svg>
