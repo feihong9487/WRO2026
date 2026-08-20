@@ -63,6 +63,7 @@ services:
       - influxdb
     environment:
       - INFLUX_URL=http://influxdb:8086
+      - PYTHONUNBUFFERED=1   # alpine 非 TTY 會緩衝 stdout，不加則 docker logs 長時間空白
     volumes:
       - ./ai_online_learning.py:/app/ai_online_learning.py:ro
       - ai-models:/app/ai_models

@@ -1,5 +1,8 @@
 # 任務書 — 桌機部署 AI 線上學習服務（給桌機的 Claude Code）
 
+> ✅ **2026-08-20 已由桌機 Claude Code 執行完畢**（成果見《部署紀錄.md》
+> 附錄「AI 線上學習服務上線」）。本檔保留作重部署／除錯手冊。
+
 > 2026-08-20 由筆電端建立。你在**桌機**（Tailscale 主機名 `desktop-c8l8ri6`，
 > 雲端中心站所在機器）上執行。整體背景見 `cloud_dash/AI線上學習指南.md`，
 > 本檔只管「把服務跑起來＋驗收」這一段。
@@ -132,9 +135,10 @@ jq '{dashboard: (. + {id: null}), overwrite: false,
     -X POST http://localhost:3000/api/dashboards/import -d @- ; unset GPW
 ```
 
-（datasource uid 以既有為準：先 `curl -s -u admin:$GPW
-http://localhost:3000/api/datasources | jq '.[].uid'` 確認，
-部署紀錄寫的是 `incense-influx`／名稱 `InfluxDB-incense`。）
+（datasource uid ★必須先查現值★：`curl -s -u admin:$GPW
+http://localhost:3000/api/datasources | jq '.[].uid'`——2026-08-20 實測
+為 `dftmtpkivyadcb`（name `InfluxDB-incense`），舊文獻寫的
+`incense-influx` 已非現值，勿寫死。）
 
 **B — 人工匯入**：使用者自己在 `http://localhost:3000` → Dashboards →
 Import → 上傳該 JSON → 資料源選 InfluxDB-incense。
