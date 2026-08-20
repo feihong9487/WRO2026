@@ -1,21 +1,22 @@
 {
- "ai1_version": 2,
+ "ai1_version": 3,
  "ai1_meta": {
-  "n_hours": 131,
+  "n_hours": 127.5,
+  "n_rows": 255,
   "lambda": 1.0,
-  "test_mae_sticks": 7.26,
-  "const_mae_sticks": 10.755,
-  "persistence_mae_sticks": 9.298,
+  "test_mae_sticks": 8.003,
+  "const_mae_sticks": 11.176,
+  "persistence_mae_sticks": 10.549,
   "deployable": true,
-  "trained_at": "2026-08-20T18:50:41+08:00",
+  "trained_at": "2026-08-20T19:58:26+08:00",
   "data_span": [
    "2026-08-14T00:00:00+08:00",
-   "2026-08-20T18:50:36+08:00"
+   "2026-08-20T19:58:20+08:00"
   ],
   "honesty": "aroma01 真實資料（居家環境作息，2026-08-08 01:15 後）；負載＝CO₂高程/26 之模擬換算代理量；影子模型，未致動",
-  "version": 2
+  "version": 3
  },
- "ai1_last_retrain": "2026-08-20T18:50:41+08:00",
- "ai2_version": 2,
- "ai2_trained_at": "2026-08-20T18:50:41+08:00"
+ "ai1_last_retrain": "2026-08-20T19:58:26+08:00",
+ "ai2_version": 3,
+ "ai2_trained_at": "2026-08-20T19:58:26+08:00"
 }

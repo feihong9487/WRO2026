@@ -152,6 +152,19 @@ Import → 上傳該 JSON → 資料源選 InfluxDB-incense。
   `部署紀錄.md`，commit + push。
 - 若使用者要公開連結：Share → Public dashboard（人工操作）。
 
+## 更新重部署（服務程式碼有新版時）
+
+```bash
+cd ~/wro-latest && git pull
+cp cloud_dash/ai_online_learning.py ~/incense-cloud/
+cd ~/incense-cloud && docker compose restart ai-online
+sleep 90 && docker logs --tail 8 ai-online   # 確認新一輪「AI-1 重訓完成」
+```
+
+（2026-08-20 晚：訓練粒度升級 30 分鐘——樣本×2、A/B 實測 MAE −7.7%。
+快取檔名從 `co2_hourly_cache.json` 換成 `co2_30m_cache.json`，
+舊檔留著無妨，新檔首輪會自動重建。）
+
 ## 卡關時
 
 依 CLAUDE.md §9 格式回報並停止。常見狀況：

@@ -62,7 +62,11 @@ TPE = timezone(timedelta(hours=8))
 REAL_DATA_START = "2026-08-08T01:15:00+08:00"   # 誠實邊界：此前為模擬資料
 TRAIN_WINDOW_DAYS = 60          # AI-1 重訓資料視窗
 ANOM_WINDOW_DAYS = 14           # AI-2 穩健統計視窗
-MIN_TRAIN_HOURS = 72            # 低於此樣本數不換模型（防過擬合上線）
+# 訓練聚合粒度：30 分鐘。2026-08-20《加速實驗》A/B：同測試段下 30 分鐘
+# 粒度訓練比小時粒度 MAE 低 7.7%（樣本×2、模型不變）。
+AGG_EVERY = "30m"
+AGG_STEP_MIN = 30
+MIN_TRAIN_ROWS = 144            # ＝72 小時；低於此不換模型（防過擬合上線）
 PPM_PER_STICK = 26.0            # ★模擬推導之穩態換算（policies.py v3）★
 SCORE_EVERY_S = 300             # --serve：每 5 分鐘評分一次
 RETRAIN_EVERY_S = 6 * 3600      # --serve：每 6 小時重訓一次
@@ -271,7 +275,8 @@ class GrafanaPublicSource:
     def series(self, measurement, fields, start_iso, every="1h", fn="mean"):
         start = datetime.fromisoformat(start_iso)
         stop = datetime.now(timezone.utc)
-        step_ms = {"1h": 3600000, "1m": 60000, "5m": 300000}[every]
+        step_ms = {"1h": 3600000, "30m": 1800000, "1m": 60000,
+                   "5m": 300000}[every]
         max_pts = int((stop - start).total_seconds() * 1000 / step_ms) + 2
         out = {f: [] for f in fields}
         for pid in {self.PANEL[f] for f in fields if f in self.PANEL}:
@@ -313,13 +318,14 @@ def cache_merge(series, path):
 
 # ── AI-1：負載預測重訓 ───────────────────────────────────────
 def daily_elevation(hourly):
-    """[(t,co2)] → [(t, 高程)]；基線＝當日（台北）最小值。日樣本<6h 不採。"""
+    """[(t,co2)] → [(t, 高程)]；基線＝當日（台北）最小值。日覆蓋<6h 不採。"""
+    min_rows = max(1, 6 * 60 // AGG_STEP_MIN)
     bydate = {}
     for t, v in hourly:
         bydate.setdefault(t.astimezone(TPE).date(), []).append((t, v))
     out = []
     for d, rows in sorted(bydate.items()):
-        if len(rows) < 6:
+        if len(rows) < min_rows:
             continue
         base = min(v for _, v in rows)
         out.extend((t, v - base) for t, v in rows)
@@ -327,14 +333,15 @@ def daily_elevation(hourly):
     return out
 
 
-WIN_CENTER = timedelta(minutes=30)   # aggregateWindow 時戳為窗尾 → 移回窗中心
+WIN_CENTER = timedelta(minutes=AGG_STEP_MIN // 2)   # 窗尾時戳 → 移回窗中心
 
 
 def retrain_predictor(hourly, state):
     data = [(t, max(0.0, e / PPM_PER_STICK)) for t, e in daily_elevation(hourly)]
     n = len(data)
-    if n < MIN_TRAIN_HOURS:
-        return None, {"skip": f"樣本不足（{n} < {MIN_TRAIN_HOURS} 小時）", "n_hours": n}
+    if n < MIN_TRAIN_ROWS:
+        return None, {"skip": f"樣本不足（{n} < {MIN_TRAIN_ROWS} 列）",
+                      "n_hours": round(n * AGG_STEP_MIN / 60, 1)}
     X = [feats_at(t - WIN_CENTER) for t, _ in data]
     Y = [y for _, y in data]
     n_tr = int(n * 0.7)
@@ -357,17 +364,19 @@ def retrain_predictor(hourly, state):
 
     ym = sum(Ytr) / len(Ytr)
     mae_const = sum(abs(ym - y) for y in Yte) / len(Yte)
-    lookup = {(t.astimezone(TPE).date(), t.astimezone(TPE).hour): y
-              for t, y in data}
+    lookup = {(t.astimezone(TPE).date(), t.astimezone(TPE).hour,
+               t.astimezone(TPE).minute // 30): y for t, y in data}
     pairs = [(lookup.get((t.astimezone(TPE).date() - timedelta(days=1),
-                          t.astimezone(TPE).hour)), y)
+                          t.astimezone(TPE).hour,
+                          t.astimezone(TPE).minute // 30)), y)
              for t, y in data[n_tr:]]
     pairs = [(p, y) for p, y in pairs if p is not None]
     mae_pers = (sum(abs(p - y) for p, y in pairs) / len(pairs)) if pairs else None
 
     sane = all(math.isfinite(x) and abs(x) < 1e3 for x in w)
     beats = sane and mae <= mae_const and (mae_pers is None or mae <= mae_pers * 1.1)
-    meta = {"n_hours": n, "lambda": lam,
+    meta = {"n_hours": round(n * AGG_STEP_MIN / 60, 1), "n_rows": n,
+            "lambda": lam,
             "test_mae_sticks": round(mae, 3),
             "const_mae_sticks": round(mae_const, 3),
             "persistence_mae_sticks": (round(mae_pers, 3)
@@ -551,8 +560,9 @@ def cycle(src, state, do_retrain, no_write):
     start_iso = t0.astimezone(timezone.utc).isoformat(timespec="seconds")
 
     print(f"[{datetime.now(TPE):%m-%d %H:%M}] 資料來源={src.name}  抓取自 {start_iso}")
-    hourly_new = src.series("sensor", ["co2"], start_iso, every="1h")["co2"]
-    hourly = cache_merge(hourly_new, os.path.join(MODELS_DIR, "co2_hourly_cache.json"))
+    hourly_new = src.series("sensor", ["co2"], start_iso, every=AGG_EVERY)["co2"]
+    hourly = cache_merge(hourly_new, os.path.join(
+        MODELS_DIR, f"co2_{AGG_EVERY}_cache.json"))
     hourly = [(t, v) for t, v in hourly if v and v > 0]
     m_start = (now - timedelta(hours=26)).isoformat(timespec="seconds")
     minutely = src.series(
@@ -560,7 +570,7 @@ def cycle(src, state, do_retrain, no_write):
         m_start, every="1m")
     minutely.update(src.series(
         "decision", ["fan_duty", "fan_actual", "ai_duty"], m_start, every="1m"))
-    print(f"  小時 CO₂ {len(hourly)} 筆（快取合併後）；"
+    print(f"  {AGG_EVERY} 粒度 CO₂ {len(hourly)} 列（快取合併後）；"
           f"近 26h 分鐘級：" + " ".join(f"{k}={len(v)}" for k, v in minutely.items()))
 
     status = {"svc_heartbeat": 1}
