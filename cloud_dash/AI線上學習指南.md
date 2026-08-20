@@ -48,7 +48,20 @@ cd ~/incense-cloud && docker compose up -d ai-online
 docker logs -f ai-online        # 應看到「AI-1 重訓完成 v1 …」「狀態已寫入 InfluxDB」
 
 # 3) 匯入儀表板（Grafana → Dashboards → Import）
-#    上傳 cloud_dash/grafana_dashboard_ai.json，資料源選 InfluxDB-incense
+#    上傳 cloud_dash/grafana_dashboard_ai.json，★資料源務必選 InfluxDB-incense★
+#
+#    ★★ 2026-08-20 踩到的坑（務必讀）★★
+#    - 本 JSON 是「匯出格式」，含 41 個 ${DS_INFLUXDB} 佔位符與 __inputs 區塊。
+#    - 走 POST /api/dashboards/import 帶 inputs 對應，API 會回 200/imported=true，
+#      admin 手動查詢也正常——★但佔位符沒有寫進儲存的儀表板★，公開看板照儲存內容
+#      跑就會全 No data（與 08-18 三個面板同一個坑，見部署紀錄附錄）。
+#    - 對策二擇一：
+#      (a) 用 UI 匯入（本步驟），對話框選 InfluxDB-incense，會正確落地；
+#      (b) 若走 API，匯入後必須驗證資料庫無殘留：
+#          docker cp grafana:/var/lib/grafana/grafana.db /tmp/g.db
+#          python3 -c "print(open('/tmp/g.db','rb').read().count(b'DS_INFLUXDB'))"  # 應為 0
+#    - 目前線上實際的 datasource uid 是 dftmtpkivyadcb（name=InfluxDB-incense）；
+#      任務書舊文寫的 incense-influx 已非現值，勿寫死。
 #    （要公開的話：Share → Public dashboard，同前三個面板做法）
 ```
 
