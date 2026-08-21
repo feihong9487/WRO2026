@@ -60,8 +60,11 @@ DUTY = {"S0": 0, "S1": 70, "S2": 220, "S3": 0}   # 0-255
 #   只計算「AI 會建議什麼 duty」寫進決策紀錄（ai_duty 欄位）與上雲，
 #   ★完全不影響送往 R4 的實際 duty★——先累積實機對比資料，
 #   致動切換是之後由人拍板的另一步。
-# 模型檔：與本檔同目錄之 ai_predictor.json（AI訓練/models/predictorB.json
-# 的複本）。檔案不存在 → 影子模式自動停用（ai_duty=None）。
+# 模型檔：與本檔同目錄之 ai_predictor.json。2026-08-21 起為
+# ★真實資料訓練版★（cloud_dash/ai_models/ai_predictor_real.json 的部署
+# 快照，v4、128.5h 居家實測、MAE 9.0 vs 基線 11.7/12.2；原模擬訓練版
+# ＝AI訓練/models/predictorB.json 仍在 repo 可還原）。
+# 檔案不存在或壞損 → 影子模式自動停用（ai_duty=None），資料流不受影響。
 # 簡化註記：效益函數以 duty/255 線性近似捕集率（完整煙羽模型在
 # AI訓練/plume.py；影子排序用線性近似已足夠，且 Pi 端零相依）。
 import math as _math
@@ -103,7 +106,11 @@ class ShadowAdvisor:
         f = self._feats(hour, ld, dow, is_open)
         return max(0.0, sum(a * b for a, b in zip(self.w, f)))
 
-    def suggest(self, co2, now):
+    def suggest(self, co2, now, base=480.0):
+        """base＝FSM 的滾動 CO2 基線（2026-08-21 修正：nowcast 原用固定
+        480，在背景漂移的場域會把「持續偏高的背景」誤讀成負載——與
+        FSM 門檻同尺（相對基線）後，影子建議與 FSM 的分歧只剩真實的
+        決策差異。模擬端 policies.py 與凍結評比不動。"""
         if self.w is None:
             return None
         if self._spent_day != now.date():
@@ -119,7 +126,7 @@ class ShadowAdvisor:
             for h in range(23, hour - 1, -1):
                 nhat = self._load_hat(h, ld, dow)
                 if h == hour and co2:            # nowcast 混入當前時段
-                    nhat = max(nhat, (co2 - 480.0) / 26.0)
+                    nhat = max(nhat, (co2 - base) / 26.0)
                 if nhat < 0.3:
                     nhat = 0.0           # 微弱預測視為無負載（防雜訊倒預算）
                 opts = [(d, int(round(AI_FAN_P_MAX * (d / 255.0) ** 3 / 0.05)),
@@ -284,7 +291,8 @@ def main():
 
         # AI 影子建議（只記錄、絕不影響上面已送出的實際 duty）
         try:
-            ai_duty = _advisor.suggest(co2, datetime.now())
+            ai_duty = _advisor.suggest(co2, datetime.now(),
+                                       base=float(co2_baseline()))
         except Exception:
             ai_duty = None
 
