@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" font-family="'Noto Sans TC','Source Han Sans TC','Microsoft JhengHei',sans-serif">
+<rect width="960" height="540" fill="#faf8f3"/>
+<defs><marker id="a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#52514e"/></marker><marker id="ag" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#C9A227"/></marker></defs>
+<rect x="0" y="0" width="960" height="70" fill="#7a3b2e"/>
+<text x="40" y="34" font-size="15" fill="#e8dcc8" font-weight="600" text-anchor="start" letter-spacing="2">INTELLIGENCE · AI 自我學習</text>
+<text x="40" y="58" font-size="24" fill="#ffffff" font-weight="800" text-anchor="start" letter-spacing="0">AI 用真機資料不斷重訓自己 —— 但「證明不了更好，就不上線」</text>
+<text x="40" y="106" font-size="17" fill="#7a3b2e" font-weight="700" text-anchor="start" letter-spacing="0">運作流程：資料飛輪</text>
+<rect x="40" y="118" width="165" height="58" rx="10" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/>
+<text x="122.5" y="144" font-size="17" fill="#1a1a1a" font-weight="700" text-anchor="middle" letter-spacing="0">真爐感測</text>
+<text x="122.5" y="164" font-size="13" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">R4→Pi5·1Hz</text>
+<line x1="205" y1="147.0" x2="251" y2="147.0" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="255" y="118" width="165" height="58" rx="10" fill="#ffffff" stroke="#1a1a1a" stroke-width="2"/>
+<text x="337.5" y="144" font-size="17" fill="#1a1a1a" font-weight="700" text-anchor="middle" letter-spacing="0">上雲</text>
+<text x="337.5" y="164" font-size="13" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">MQTT→雲端</text>
+<line x1="420" y1="147.0" x2="451" y2="147.0" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="455" y="118" width="165" height="58" rx="10" fill="#ffffff" stroke="#2a78d6" stroke-width="2"/>
+<text x="537.5" y="144" font-size="17" fill="#1a1a1a" font-weight="700" text-anchor="middle" letter-spacing="0">實測資料庫</text>
+<text x="537.5" y="164" font-size="13" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">InfluxDB</text>
+<line x1="620" y1="147.0" x2="661" y2="147.0" stroke="#52514e" stroke-width="2" marker-end="url(#a)"/>
+<rect x="665" y="118" width="165" height="58" rx="10" fill="#ffffff" stroke="#1baf7a" stroke-width="2"/>
+<text x="747.5" y="144" font-size="17" fill="#1a1a1a" font-weight="700" text-anchor="middle" letter-spacing="0">AI 學習容器</text>
+<text x="747.5" y="164" font-size="13" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">ai-online</text>
+<path d="M 747.5 176 L 747.5 198 L 122.5 198 L 122.5 180" fill="none" stroke="#C9A227" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ag)"/>
+<text x="480.0" y="216" font-size="13" fill="#C9A227" font-weight="600" text-anchor="middle" letter-spacing="0">每 6 小時用最新實測重訓 → 寫回 ai_status → 供決策層參考（影子模式：只建議、不致動）</text>
+<rect x="40" y="300" width="280" height="178" rx="10" fill="#ffffff" stroke="#e6e2d8" stroke-width="1.5"/>
+<rect x="40" y="300" width="6" height="178" rx="3" fill="#2a78d6"/>
+<text x="62" y="334" font-size="18" fill="#1a1a1a" font-weight="700" text-anchor="start" letter-spacing="0">① 兩個 AI 各司其職</text>
+<text x="62" y="362" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">AI-1 負載預測：學「這個時刻</text>
+<text x="62" y="388" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">平常多忙」，供前饋削峰</text>
+<text x="62" y="414" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">AI-2 異常偵測：學感測老化、</text>
+<text x="62" y="440" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">濾材狀態的正常範圍</text>
+<rect x="340" y="300" width="280" height="178" rx="10" fill="#ffffff" stroke="#e6e2d8" stroke-width="1.5"/>
+<rect x="340" y="300" width="6" height="178" rx="3" fill="#1baf7a"/>
+<text x="362" y="334" font-size="18" fill="#1a1a1a" font-weight="700" text-anchor="start" letter-spacing="0">② 資料飛輪：越跑越準</text>
+<text x="362" y="362" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">每 6 小時用累積的真機資料</text>
+<text x="362" y="388" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">重訓一次，模型版本遞增</text>
+<text x="362" y="414" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">每 5 分鐘評分一次現況</text>
+<text x="362" y="440" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">—— 系統常駐、持續自學</text>
+<rect x="640" y="300" width="280" height="178" rx="10" fill="#ffffff" stroke="#e6e2d8" stroke-width="1.5"/>
+<rect x="640" y="300" width="6" height="178" rx="3" fill="#9E3B2F"/>
+<text x="662" y="334" font-size="18" fill="#1a1a1a" font-weight="700" text-anchor="start" letter-spacing="0">③ 守門條款：安全剎車</text>
+<text x="662" y="362" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">新模型沒證明贏過基線</text>
+<text x="662" y="388" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">→ 就不換，沿用舊版</text>
+<text x="662" y="414" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">防止「越學越差」上線；</text>
+<text x="662" y="440" font-size="14.5" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">這跟調出好數字就宣稱相反</text>
+<text x="480.0" y="526" font-size="13" fill="#8a8377" font-weight="600" text-anchor="middle" letter-spacing="0">★誠實邊界：目前為居家實測資料訓練，屬「預測機制」驗證，非廟宇負載成效★</text>
+</svg>

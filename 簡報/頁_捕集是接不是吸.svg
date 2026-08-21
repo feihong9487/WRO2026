@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540" font-family="'Noto Sans TC','Source Han Sans TC','Microsoft JhengHei',sans-serif">
+<rect width="960" height="540" fill="#faf8f3"/>
+<rect x="0" y="0" width="960" height="70" fill="#7a3b2e"/>
+<text x="40" y="34" font-size="15" fill="#e8dcc8" font-weight="600" text-anchor="start" letter-spacing="2">SOLUTION · 工程</text>
+<text x="40" y="58" font-size="27" fill="#ffffff" font-weight="800" text-anchor="start" letter-spacing="0">捕集是「接」的問題，不是「吸」的問題</text>
+<rect x="40" y="92" width="430" height="210" rx="10" fill="#ffffff" stroke="#e6e2d8" stroke-width="1.5"/>
+<rect x="40" y="92" width="6" height="210" rx="3" fill="#9E3B2F"/>
+<text x="64" y="132" font-size="21" fill="#1a1a1a" font-weight="700" text-anchor="start" letter-spacing="0">煙羽不是被「吸」進去的</text>
+<text x="64" y="162" font-size="17" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">是靠自身浮力上升，被罩口「承接」。</text>
+<text x="64" y="187" font-size="17" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">所以決定成敗的是罩體幾何，不是風量大小。</text>
+<rect x="64" y="210" width="176" height="72" rx="10" fill="#faf8f3" stroke="#e6e2d8" stroke-width="1.5"/>
+<text x="152" y="250" font-size="34" fill="#2a78d6" font-weight="800" text-anchor="middle" letter-spacing="0">1 : 8</text>
+<text x="152" y="272" font-size="14" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">距罩口 100 mm</text>
+<rect x="264" y="210" width="176" height="72" rx="10" fill="#faf8f3" stroke="#e6e2d8" stroke-width="1.5"/>
+<text x="352" y="250" font-size="34" fill="#2a78d6" font-weight="800" text-anchor="middle" letter-spacing="0">1 : 22</text>
+<text x="352" y="272" font-size="14" fill="#8a8377" font-weight="400" text-anchor="middle" letter-spacing="0">距罩口 200 mm</text>
+<text x="64" y="297" font-size="12" fill="#8a8377" font-weight="400" text-anchor="start" letter-spacing="0">誘導風速 : 煙羽上升速度（設計值）</text>
+<rect x="490" y="92" width="430" height="210" rx="10" fill="#ffffff" stroke="#e6e2d8" stroke-width="1.5"/>
+<text x="514" y="130" font-size="21" fill="#1a1a1a" font-weight="700" text-anchor="start" letter-spacing="0">不換爐，只加裝一個模組</text>
+<text x="514" y="158" font-size="16" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">retrofit —— 香客插香動作完全不變，</text>
+<text x="514" y="180" font-size="16" fill="#52514e" font-weight="400" text-anchor="start" letter-spacing="0">廟方導入零儀式衝擊。</text>
+<polygon points="585.0,212 825.0,212 775.0,257 635.0,257" fill="none" stroke="#7a3b2e" stroke-width="3"/>
+<rect x="650.0" y="257" width="110" height="28" fill="none" stroke="#7a3b2e" stroke-width="3"/>
+<line x1="705.0" y1="212" x2="705.0" y2="187" stroke="#9E3B2F" stroke-width="3"/>
+<path d="M 687.0 210 q -5.3999999999999995 -18 -9.0 -30" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round"/>
+<path d="M 705.0 210 q 0.0 -18 0.0 -30" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round"/>
+<path d="M 723.0 210 q 5.3999999999999995 -18 9.0 -30" fill="none" stroke="#C9A227" stroke-width="2" stroke-linecap="round"/>
+<text x="705.0" y="242" font-size="13" fill="#C9A227" font-weight="600" text-anchor="middle" letter-spacing="0">煙羽↑浮力</text>
+<text x="514" y="297" font-size="12" fill="#8a8377" font-weight="400" text-anchor="start" letter-spacing="0">集煙罩 · 爐盆 · 電子艙（參數化 CAD）</text>
+<rect x="40" y="318" width="880" height="194" rx="10" fill="#2b211c" stroke="#2b211c" stroke-width="1.5"/>
+<rect x="40" y="318" width="6" height="194" rx="3" fill="#C9A227"/>
+<text x="66" y="358" font-size="24" fill="#ffffff" font-weight="800" text-anchor="start" letter-spacing="0">我們被自己的判準推翻過</text>
+<text x="66" y="388" font-size="16" fill="#d9cfc0" font-weight="400" text-anchor="start" letter-spacing="0">三項獨立判準（煙羽幾何・橫流漂移・ACGIH 面風速）同時指出：原訂罩口接不住煙羽。</text>
+<text x="66" y="412" font-size="16" fill="#d9cfc0" font-weight="400" text-anchor="start" letter-spacing="0">這不是把失敗藏起來，而是用幾何判準把設計推到能承接煙羽的位置。</text>
+<text x="150" y="483" font-size="46" fill="#c9857a" font-weight="800" text-anchor="middle" letter-spacing="0">175 mm</text>
+<text x="150" y="504" font-size="15" fill="#a89684" font-weight="400" text-anchor="middle" letter-spacing="0">原訂罩口 ✗</text>
+<text x="480.0" y="476" font-size="40" fill="#C9A227" font-weight="400" text-anchor="middle" letter-spacing="0">→</text>
+<text x="760" y="483" font-size="46" fill="#7bc49a" font-weight="800" text-anchor="middle" letter-spacing="0">215 mm</text>
+<text x="760" y="504" font-size="15" fill="#a89684" font-weight="400" text-anchor="middle" letter-spacing="0">定案罩口＋三面側裙 ✓</text>
+<text x="480.0" y="434" font-size="14" fill="#C9A227" font-weight="600" text-anchor="middle" letter-spacing="0">多數團隊只寫成功；我們把「被自己推翻」也寫出來 —— 這才像 IEEE。</text>
+</svg>
