@@ -111,7 +111,7 @@ export function createBoard({ isPublic, slips = true }) {
   }
 
   function renderCams() {
-    cams.update(store.latest.vision, age("vision") < VISION_FRESH_S);
+    cams.update(store.latest.vision, age("vision") < VISION_FRESH_S, store.latest.photo, age("photo"));
   }
 
   function renderAll() {
@@ -129,6 +129,7 @@ export function createBoard({ isPublic, slips = true }) {
       if (now > chartDue) { chartDue = now + 2000; co2Chart.set(store.hist); }
     } else if (kind === "decision") renderAir();
     else if (kind === "robot") renderNow();
+    else if (kind === "photo") renderCams();
     else if (kind === "vision") { renderCams(); const r = robotNow(); if (r && r.station === "TABLE") renderNow(); }
     else if (kind === "event") renderSlips();
     else if (kind === "conn" || kind === "tick") renderLive();

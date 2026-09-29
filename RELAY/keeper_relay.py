@@ -19,6 +19,7 @@ keeper_relay.py — 廟公機器人的筆電中繼程式（接替原本 Pi 5 的
        incense/<裝置>/vision    相機框框，每秒 5 筆，給監控網站用
        incense/<裝置>/event     R4 的紀錄訊息與連線事件，給監控網站的事件紀錄用
        incense/<裝置>/ack       遠端指令的處理結果
+       incense/<裝置>/photo     M-Vision 照片（160 × 120 JPEG，靜止時約每 2 秒一張）
      桌機的 Telegraf 只收 sensor 與 decision，其餘主題不影響現有儀表板。
   5. 訂閱 incense/<裝置>/cmd，把監控網站的指令轉給 R4。只接受固定幾種指令，
      超過 30 秒才送到的指令不執行。R4 自己還會再檢查一次狀態與電池。
@@ -44,6 +45,7 @@ keeper_relay.py — 廟公機器人的筆電中繼程式（接替原本 Pi 5 的
 """
 
 import argparse
+import base64
 import json
 import os
 import re
@@ -353,6 +355,96 @@ class NoCloud:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# AI 影子建議：原 pi_fsm.py 的 ShadowAdvisor，程式逐行沿用
+# B 案（日曆負載預測＋電量預算 DP 排程）。只算「AI 會建議多少 duty」寫進決策紀錄的 ai_duty，
+# 完全不影響送給 R4 的實際風扇指令。模型檔 ai_predictor.json 與 PI5/ai_predictor.json 相同，
+# 檔案不存在或壞掉時自動停用（ai_duty 不送）。
+# ═══════════════════════════════════════════════════════════════════
+import math as _math
+import os as _os
+
+AI_ACTIONS = (0, 70, 220, 255)
+AI_BUDGET_WH = 4.0          # 與訓練情境一致（D40；耗盡假設見 AI訓練/README）
+AI_FAN_P_MAX = 1.0          # SUNON 4020 家族典型（EST）
+
+
+class ShadowAdvisor:
+    _SYN = 29.530588
+    _EPOCH = 947182440.0    # 2000-01-06 18:14 UTC（朔）近似
+
+    def __init__(self, path):
+        self.w = None
+        try:
+            with open(path, encoding="utf-8") as f:
+                self.w = json.load(f)["w"]
+        except Exception:
+            return                       # 無模型 → 停用
+        self._sched, self._slot = None, -1
+        self._spent_wh, self._spent_day = 0.0, None
+
+    @staticmethod
+    def _feats(hour, ld, dow, is_open):
+        morning = _math.exp(-((hour - 8.0) ** 2) / 8.0)
+        evening = _math.exp(-((hour - 17.0) ** 2) / 12.5)
+        lp = 1.0 if (ld < 1.0 or 14.0 <= ld < 15.5) else 0.0
+        we = 1.0 if dow >= 5 else 0.0
+        return [1.0, _math.sin(2 * _math.pi * hour / 24.0),
+                _math.cos(2 * _math.pi * hour / 24.0),
+                morning, evening, lp, we, is_open,
+                is_open * morning * lp, is_open * evening * lp,
+                is_open * we, is_open * lp]
+
+    def _load_hat(self, hour, ld, dow):
+        is_open = 1.0 if 6 <= hour < 21 else 0.0
+        f = self._feats(hour, ld, dow, is_open)
+        return max(0.0, sum(a * b for a, b in zip(self.w, f)))
+
+    def suggest(self, co2, now, base=480.0):
+        """base＝FSM 的滾動 CO2 基線（2026-08-21 修正：nowcast 原用固定
+        480，在背景漂移的場域會把「持續偏高的背景」誤讀成負載——與
+        FSM 門檻同尺（相對基線）後，影子建議與 FSM 的分歧只剩真實的
+        決策差異。模擬端 policies.py 與凍結評比不動。"""
+        if self.w is None:
+            return None
+        if self._spent_day != now.date():
+            self._spent_day, self._spent_wh = now.date(), 0.0
+        ld = ((now.timestamp() - self._EPOCH) / 86400.0) % self._SYN
+        dow = now.weekday()
+        hour = now.hour
+        slot = (now.hour * 2) + (1 if now.minute >= 30 else 0)
+        if self._sched is None or slot != self._slot:
+            budget = max(0.0, AI_BUDGET_WH - self._spent_wh)
+            nb = int(budget / 0.05) + 1
+            dp = [(0.0, [])] * nb
+            for h in range(23, hour - 1, -1):
+                nhat = self._load_hat(h, ld, dow)
+                if h == hour and co2:            # nowcast 混入當前時段
+                    nhat = max(nhat, (co2 - base) / 26.0)
+                if nhat < 0.3:
+                    nhat = 0.0           # 微弱預測視為無負載（防雜訊倒預算）
+                opts = [(d, int(round(AI_FAN_P_MAX * (d / 255.0) ** 3 / 0.05)),
+                         (d / 255.0) * nhat) for d in AI_ACTIONS]
+                ndp = [None] * nb
+                for b in range(nb):
+                    best = (-1.0, 0, [])
+                    for d, c, ben in opts:
+                        if c <= b:
+                            v, ch = dp[b - c]
+                            if ben + v > best[0]:
+                                best = (ben + v, d, ch)
+                    ndp[b] = (best[0], [best[1]] + best[2])
+                dp = ndp
+            self._sched = {h: d for h, d in
+                           zip(range(hour, 24), dp[nb - 1][1])}
+            self._slot = slot
+        d = self._sched.get(hour, 0)
+        self._spent_wh += AI_FAN_P_MAX * (d / 255.0) ** 3 / 3600.0
+        return d
+
+
+
+
+# ═══════════════════════════════════════════════════════════════════
 # 風扇決策：原 pi_fsm.py 的狀態機，邏輯逐行沿用
 # ═══════════════════════════════════════════════════════════════════
 class Fsm:
@@ -522,6 +614,8 @@ class Relay:
         self.args = args
         self.cloud = cloud
         self.fsm = Fsm()
+        self.advisor = ShadowAdvisor(os.path.join(HERE, "ai_predictor.json"))
+        say("AI 影子建議：" + ("已載入模型" if self.advisor.w is not None else "找不到 ai_predictor.json，停用"))
         self.r4 = R4Link(self.on_line, lambda m: self.event(m, "relay"))
         self.lock = threading.Lock()
         self.tele, self.tele_t = {}, 0.0
@@ -531,6 +625,8 @@ class Relay:
         self.manual = None                 # 手動風扇值，None = 自動
         self.last_wait_msg = 0.0
         self.pending = {}                  # 已轉給 R4、等它回覆的指令：指令 → (編號, 送出者)
+        self.photo_seq, self.photo_parts, self.photo_n = None, {}, 0
+        self.photos = 0
 
         os.makedirs(os.path.join(HERE, "logs"), exist_ok=True)
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -578,6 +674,8 @@ class Relay:
             else:
                 say("R4> " + msg)
                 self.event(msg, "r4")
+        elif line.startswith("J"):
+            self.on_photo_part(line)
         elif line.startswith("A{"):
             a = json.loads(line[1:])
             self._raw(line)
@@ -588,6 +686,37 @@ class Relay:
             self.ack(cid, cmd, bool(a.get("ok")), a.get("why", ""), "r4", by)
         else:
             say("收到無法辨識的內容：" + line[:80])
+
+    # ---- M-Vision 照片：R4 分段送來 J<序號>,<第幾段>,<總段數>,<base64>，收齊再上傳 ----
+    def on_photo_part(self, line):
+        parts = line[1:].split(",", 3)
+        if len(parts) != 4:
+            return
+        try:
+            seq, i, n = int(parts[0]), int(parts[1]), int(parts[2])
+        except ValueError:
+            return
+        if seq != self.photo_seq:                 # 新的一張：丟掉沒收齊的上一張
+            self.photo_seq, self.photo_parts, self.photo_n = seq, {}, n
+        self.photo_parts[i] = parts[3]
+        if len(self.photo_parts) < self.photo_n or not all(k in self.photo_parts for k in range(self.photo_n)):
+            return
+        try:
+            jpg = base64.b64decode("".join(self.photo_parts[k] for k in range(self.photo_n)))
+        except ValueError:
+            jpg = b""
+        self.photo_parts = {}
+        if jpg[:2] != bytes((0xFF, 0xD8)):          # JPEG 開頭
+            say("收到壞掉的照片，略過")
+            return
+        self.photos += 1
+        self.cloud.publish(self.topic("photo"), {"ts": now_iso(), "seq": seq, "w": 160, "h": 120,
+                                                 "jpg": base64.b64encode(jpg).decode("ascii")}, max_age=3)
+        try:
+            with open(os.path.join(HERE, "logs", "photo_latest.jpg"), "wb") as f:
+                f.write(jpg)                      # 最新一張留在本機，除錯用
+        except OSError:
+            pass
 
     # ---- 送給監控網站的事件與指令回覆 ----
     def event(self, msg, src):
@@ -678,6 +807,12 @@ class Relay:
             if not self.r4.send(f"FAN {duty}"):
                 action = (action + " SEND_ERR").strip()
 
+        # AI 影子建議（只記錄、絕不影響上面已送出的實際 duty）
+        try:
+            ai_duty = self.advisor.suggest(co2, datetime.now(), base=float(self.fsm.baseline()))
+        except Exception:
+            ai_duty = None
+
         rec = {
             "ts": now_iso(),
             "co2": co2,
@@ -694,6 +829,8 @@ class Relay:
             "fan_duty": duty,
             "action": action,
         }
+        if ai_duty is not None:
+            rec["ai_duty"] = ai_duty              # 影子模式：AI 的建議值（未致動）
         self.dec_log.write(json.dumps(rec, ensure_ascii=False) + "\n")
         self.cloud.publish(self.topic("decision"), rec)
 
@@ -705,8 +842,8 @@ class Relay:
             f"{s.get('robot', '?')} {s.get('leg', '') or ''} 站={s.get('station', '?')} "
             f"香灰={'--' if ash is None or ash < 0 else f'{ash}%'} "
             f"電池={'--' if batt is None or batt <= -99 else f'{batt:.2f}V'} "
-            f"WiFi={s.get('rssi', '?')}dBm ｜ {self.vision_text(v, vage)} ｜ "
-            f"雲端：{self.cloud.state} 已送 {self.cloud.sent} {action}")
+            f"WiFi={s.get('rssi', '?')}dBm ｜ {self.vision_text(v, vage)} 照片{self.photos}張 ｜ "
+            f"{'' if ai_duty is None else f'AI影子={ai_duty} '}雲端：{self.cloud.state} 已送 {self.cloud.sent} {action}")
 
     @staticmethod
     def vision_text(v, vage):
@@ -789,7 +926,8 @@ def main():
             say(f"{os.path.basename(a.secrets)} 裡沒有 MQTT 密碼，這次不上雲（填好後重開本程式）")
             relay.cloud.state = "沒填密碼，未啟用"
         else:
-            cid = f"keeper-relay-{socket.gethostname()[:12]}"
+            # 代號要唯一：同名的連線會被 mosquitto 互相踢掉（例如同時開測試用的第二個中繼）
+            cid = f"keeper-relay-{socket.gethostname()[:12]}-{os.getpid()}"
             relay.cloud = Cloud(a.mqtt_host, a.mqtt_port, user, pw, cid,
                                 subscribe_fn=relay.subscriptions, on_message=relay.on_cloud_message)
     say(f"雲端主題 incense/{relay.device}/...；風扇決策："

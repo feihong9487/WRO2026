@@ -9,7 +9,7 @@ Grafana 原本的網址不受影響。
 
 ## 1. 複製檔案
 
-把整個 `KEEPER_WEB` 資料夾複製到桌機放 `docker-compose.yml` 的資料夾，改名為 `keeper_web`。
+把整個 `web` 資料夾（GitHub repo 裡叫 `KEEPER_WEB`）複製到桌機放 `docker-compose.yml` 的資料夾，改名為 `keeper_web`。
 **不要複製 `data/`**，那是筆電測試用的，裡面有測試帳號。
 
 在同一層另外建一個空資料夾 `keeper_web_data`。

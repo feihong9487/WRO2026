@@ -39,7 +39,7 @@ export function connect(url) {
     store.connected = true;
     emit("snapshot", s);
   });
-  for (const kind of ["sensor", "decision", "robot", "vision"]) {
+  for (const kind of ["sensor", "decision", "robot", "vision", "photo"]) {
     es.addEventListener(kind, (e) => {
       const o = JSON.parse(e.data);
       store.latest[kind] = o;

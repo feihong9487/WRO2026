@@ -1,6 +1,7 @@
 // cams.js — 兩顆相機的示意畫面
-// 相機本身不傳影像（WiFi 頻寬只夠傳辨識結果），這裡依回傳的框框座標在 320 × 240 的畫面上重畫。
-// M-Vision 與 HuskyLens 回傳的都是「中心點 x、y ＋寬、高」。
+// M-Vision 靜止時約每 2 秒傳一張 160 × 120 的照片，有照片就拿來當底圖；沒有照片時畫成白色桌面。
+// 框框一律依即時的辨識座標重畫（320 × 240），所以照片稍舊時框框仍是最新的。
+// HuskyLens 不能傳影像，永遠是示意圖。兩顆相機回傳的都是「中心點 x、y ＋寬、高」。
 
 import { t } from "./words.js";
 
@@ -46,14 +47,20 @@ function brackets(ctx, x, y, w, h, color) {
 export function createCams({ mvCanvas, hlCanvas, mvEmpty, hlEmpty, mvChips, hlChips }) {
   const mv = setup(mvCanvas), hl = setup(hlCanvas);
   let lastMv = null, lastHl = null, scan = 0, raf = 0;
+  let photoImg = null, photoSeq = null, photoFresh = false;
+  const PHOTO_MAX_AGE_S = 15;
 
   function drawTable(v, sweep) {
     const c = mv.ctx;
     c.clearRect(0, 0, W, H);
-    c.fillStyle = css("--table"); c.fillRect(0, 0, W, H);
-    c.strokeStyle = "rgba(120,90,60,.12)"; c.lineWidth = 1;
-    for (let x = 40; x < W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
-    for (let y = 40; y < H; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+    if (photoFresh && photoImg && photoImg.complete && photoImg.naturalWidth) {
+      c.drawImage(photoImg, 0, 0, W, H);          // 真的畫面（160 × 120 放大到 320 × 240）
+    } else {
+      c.fillStyle = css("--table"); c.fillRect(0, 0, W, H);
+      c.strokeStyle = "rgba(120,90,60,.12)"; c.lineWidth = 1;
+      for (let x = 40; x < W; x += 40) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, H); c.stroke(); }
+      for (let y = 40; y < H; y += 40) { c.beginPath(); c.moveTo(0, y); c.lineTo(W, y); c.stroke(); }
+    }
     if (!v) return;
     const red = "#c0392b", green = "#1f8a5b";
     if (v.f & 1) {
@@ -112,7 +119,17 @@ export function createCams({ mvCanvas, hlCanvas, mvEmpty, hlEmpty, mvChips, hlCh
     raf = requestAnimationFrame(loop);
   }
 
-  function update(vision, fresh) {
+  function setPhoto(photo, ageS) {
+    photoFresh = !!photo && ageS < PHOTO_MAX_AGE_S;
+    if (!photo || !photo.jpg || photo.seq === photoSeq) return;
+    photoSeq = photo.seq;
+    const img = new Image();
+    img.onload = () => { photoImg = img; drawTable(lastMv, null); };
+    img.src = "data:image/jpeg;base64," + photo.jpg;
+  }
+
+  function update(vision, fresh, photo, photoAge) {
+    setPhoto(photo, photoAge);
     const m = fresh && vision && vision.mv && vision.mv.ok ? vision.mv : null;
     const h = fresh && vision && vision.hl && vision.hl.ok ? vision.hl : null;
     mvEmpty.hidden = !!m; hlEmpty.hidden = !!h;
@@ -124,6 +141,7 @@ export function createCams({ mvCanvas, hlCanvas, mvEmpty, hlEmpty, mvChips, hlCh
         ["#c0392b", t("plate"), m.f & 1 ? "✓" : "—"],
         ["#1f8a5b", t("outside"), String(m.no ?? 0)],
         [null, t("onPlate"), String(m.ni ?? 0)],
+        ...(photoFresh ? [[null, t("photo"), t("photoAge", { s: Math.max(0, Math.round(photoAge)) })]] : []),
       ]);
     } else { cancelAnimationFrame(raf); raf = 0; drawTable(null); mvChips.replaceChildren(); }
     drawStrip(h);

@@ -104,6 +104,13 @@ const int      ASH_EEPROM_ADDR  = 0;        // 與 ASH_LEVEL 相同，校正值�
 const uint16_t ASH_EEPROM_MAGIC = 0xA51E;
 const unsigned long HUSKY_TIMEOUT_MS = 40;  // HuskyLens 回應逾時，程式庫預設 100 ms 太久
 
+// M-Vision 拍照回傳（給監控網站看真的畫面）。只在車子靜止、且已連上筆電中繼時才要照片，
+// 行進中不拍，避免影響循線的迴圈時間。照片約 2~4 KB，WiFi 約 0.5 秒送完。
+#define USE_SNAPSHOT 1
+const uint32_t SNAP_PERIOD_MS  = 2000;      // 多久要一張
+const uint32_t SNAP_TIMEOUT_MS = 2000;      // 相機多久沒回就放棄這一張
+const uint16_t SNAP_MAX_BYTES  = 3000;      // 要和 MVISION_OFFERING/main.py 的 SNAP_MAX_BYTES 搭配（相機端 2900）。R4 的 RAM 只剩這麼多
+
 // ═══════════════════════ 網路（依 WIFI_SPEED_TEST 實測結果）═══════════════════════
 const uint16_t RELAY_TCP_PORT = 5005;
 const uint16_t BEACON_PORT    = 5006;

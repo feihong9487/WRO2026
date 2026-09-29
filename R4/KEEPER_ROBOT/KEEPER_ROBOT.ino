@@ -34,6 +34,7 @@
     V{JSON}   每 200 ms 一行相機結果。以 V 開頭，舊的 pi_fsm.py 會自動略過
     # ...     紀錄訊息（USB 與 WiFi 都送）
     A{JSON}   遠端指令的結果 {"cmd":"RUN MORNING","ok":1,"why":"已開始"}
+    J...      M-Vision 照片分段（只走 WiFi）：J<序號>,<第幾段>,<總段數>,<base64 JPEG>
   R4 接收：
     FAN <0-255>  外部風扇指令（與原 Pi 協定相同）
     PING         外部心跳（與原 Pi 協定相同）
@@ -162,6 +163,13 @@ uint8_t   ashHistN = 0, ashHistI = 0;
 AshCalib  ashCal = { 0, 0, 0 };
 MVision   mv = { false, false, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 uint32_t  mvGood = 0, mvBad = 0;
+#if USE_SNAPSHOT
+uint8_t   snapBuf[SNAP_MAX_BYTES];
+uint16_t  snapLen = 0, snapRx = 0, snapSent = 0;   // 照片長度、已收、已送
+uint8_t   snapChk = 0, snapSeq = 0;
+bool      snapReady = false, snapWaiting = false;
+uint32_t  snapReqAt = 0, snapOk = 0, snapBad = 0;
+#endif
 
 // ---- 網路 ----
 WiFiClient net;
@@ -494,15 +502,47 @@ void serviceHusky() {
 // M-Vision：供品與供盤（沿用 CAM_TEST 的封包解析）
 // ═══════════════════════════════════════════════════════════════════════════
 // 封包：0xAA、N、N 個 16 位元數值（低位元組在前）、XOR 檢查碼。邊收邊找開頭，掉位元組會自己對齊
+// 照片：0xAB、0x4A、長度（低位元組在前）、JPEG、XOR 檢查碼（只算 JPEG）
 void serviceMVision() {
 #if USE_MVISION
   static uint8_t state = 0, len = 0, idx = 0, chk = 0;
   static uint8_t buf[40];
-  uint8_t guard = 0;
-  while (Serial1.available() && guard++ < 96) {
+  uint16_t guard = 0;
+  // 收照片時一次多讀一些，避免 UART 接收緩衝區滿了掉資料
+  uint16_t limit = (state >= 10) ? 600 : 96;
+  while (Serial1.available() && guard++ < limit) {
     uint8_t b = Serial1.read();
     switch (state) {
-      case 0: if (b == 0xAA) { chk = 0xAA; state = 1; } break;
+      case 0:
+        if (b == 0xAA) { chk = 0xAA; state = 1; }
+#if USE_SNAPSHOT
+        else if (b == 0xAB) state = 10;
+#endif
+        break;
+#if USE_SNAPSHOT
+      case 10: state = (b == 0x4A) ? 11 : 0; break;
+      case 11: snapLen = b; state = 12; break;
+      case 12:
+        snapLen |= (uint16_t)b << 8;
+        // 上一張還沒送完、或長度不合理，就不收這一張。後面的 JPEG 位元組會在狀態 0 被當成雜訊略過，
+        // 就算裡面剛好有 0xAA，也會被檢查碼和座標範圍擋掉
+        if (snapLen == 0 || snapLen > SNAP_MAX_BYTES || snapReady) { state = 0; snapBad++; break; }
+        snapRx = 0; snapChk = 0; state = 13; limit = 600;
+        break;
+      case 13:
+        snapBuf[snapRx++] = b; snapChk ^= b;
+        if (snapRx >= snapLen) state = 14;
+        break;
+      case 14:
+        if (b == snapChk && snapBuf[0] == 0xFF && snapBuf[1] == 0xD8) {
+          snapReady = true; snapSent = 0; snapSeq++; snapOk++;
+        } else {
+          snapBad++;
+        }
+        snapWaiting = false;
+        state = 0;
+        break;
+#endif
       case 1:
         if (b == 0 || b > 20) { state = 0; break; }
         len = b; chk ^= b; idx = 0; state = 2;
@@ -515,6 +555,8 @@ void serviceMVision() {
         if (b == chk && len >= 12) {
           uint16_t v[12];
           for (uint8_t i = 0; i < 12; i++) v[i] = buf[2 * i] | ((uint16_t)buf[2 * i + 1] << 8);
+          // 座標超出 320 x 240 就是誤把照片裡的 0xAA 當成開頭，丟掉
+          if (v[1] > 320 || v[2] > 240 || v[5] > 320 || v[6] > 240) { mvBad++; state = 0; break; }
           mv.plate = v[0] & 1;  mv.target = v[0] & 2;
           mv.px = v[1]; mv.py = v[2]; mv.pw = v[3]; mv.ph = v[4];
           mv.tx = v[5]; mv.ty = v[6]; mv.tw = v[7]; mv.th = v[8];
@@ -685,6 +727,62 @@ void serviceNet() {
     default: break;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// M-Vision 拍照回傳：向相機要照片，收到後切成 base64 小段經 WiFi 送給筆電中繼
+// 每行：J<序號>,<第幾段>,<總段數>,<base64>。中繼收齊後轉成 JPEG 上傳，網站拿來當相機畫面
+// ═══════════════════════════════════════════════════════════════════════════
+#if USE_SNAPSHOT
+const uint16_t SNAP_RAW_PER_LINE = 180;       // 每行 180 位元組，base64 後 240 字，整行約 255 B
+static const char B64[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+size_t b64enc(const uint8_t* in, size_t n, char* out) {
+  size_t o = 0;
+  for (size_t i = 0; i < n; i += 3) {
+    uint32_t v = (uint32_t)in[i] << 16;
+    if (i + 1 < n) v |= (uint32_t)in[i + 1] << 8;
+    if (i + 2 < n) v |= in[i + 2];
+    out[o++] = B64[(v >> 18) & 63];
+    out[o++] = B64[(v >> 12) & 63];
+    out[o++] = (i + 1 < n) ? B64[(v >> 6) & 63] : '=';
+    out[o++] = (i + 2 < n) ? B64[v & 63] : '=';
+  }
+  return o;
+}
+
+void serviceSnapshot() {
+  unsigned long now = millis();
+  if (snapWaiting && now - snapReqAt > SNAP_TIMEOUT_MS) snapWaiting = false;   // 相機沒回，下次再要
+  if (netState != NET_ONLINE) { snapReady = false; return; }
+
+  if (!snapReady) {
+    // 只在靜止、相機有資料時要照片；行進中不拍，把迴圈時間留給循線
+    if (!snapWaiting && !motionBusy() && mvFresh() && now - snapReqAt >= SNAP_PERIOD_MS) {
+      Serial1.write('S');
+      snapReqAt = now;
+      snapWaiting = true;
+    }
+    return;
+  }
+
+  // 送出：傳送佇列有空間才放一行，每圈最多兩行，不擠掉遙測
+  uint16_t total = (snapLen + SNAP_RAW_PER_LINE - 1) / SNAP_RAW_PER_LINE;
+  for (uint8_t k = 0; k < 2 && snapReady; k++) {
+    if (TXQ_SIZE - 1 - txUsed() < 300) return;
+    uint16_t part = snapSent / SNAP_RAW_PER_LINE;
+    uint16_t m = snapLen - snapSent;
+    if (m > SNAP_RAW_PER_LINE) m = SNAP_RAW_PER_LINE;
+    char line[272];
+    int h = snprintf(line, sizeof(line), "J%u,%u,%u,", snapSeq, part, total);
+    h += b64enc(snapBuf + snapSent, m, line + h);
+    netEnqueue(line, h);
+    snapSent += m;
+    if (snapSent >= snapLen) snapReady = false;
+  }
+}
+#else
+void serviceSnapshot() {}
+#endif
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 指令（USB 與 WiFi 共用，與原 Pi 協定相容）
@@ -1404,6 +1502,7 @@ void loop() {
   serviceTick();        // 每秒：轉速、DS18B20、電池、遙測
   serviceVisionSend();  // 相機結果（5 Hz）
   serviceNet();         // WiFi 中繼
+  serviceSnapshot();    // M-Vision 照片（靜止時每 2 秒一張）
   serviceButtons();     // 按鍵
   serviceOLED();        // 顯示
 }

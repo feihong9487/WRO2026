@@ -21,6 +21,7 @@ server.py — 廟公機器人監控網站（架在桌機，和 Grafana 放在一
   MQTT_PASSWORD  或放在 data/keeper_web.json 的 mqtt_password
   DEVICE         預設 aroma01
   PORT           預設 8090
+  PUBLIC_PHOTO   預設 1：公開頁也看得到 M-Vision 照片；設 0 只給團隊看
 
 帳號：用 manage_users.py 新增（密碼只存雜湊值）。
 """
@@ -72,7 +73,7 @@ def log(msg):
 
 def load_config():
     cfg = {"mqtt_host": "mosquitto", "mqtt_port": 1883, "mqtt_user": "keeper-web",
-           "mqtt_password": "", "device": "aroma01", "port": 8090}
+           "mqtt_password": "", "device": "aroma01", "port": 8090, "public_photo": True}
     path = os.path.join(DATA, "keeper_web.json")
     try:
         with open(path, encoding="utf-8") as f:
@@ -82,7 +83,7 @@ def load_config():
     except (OSError, ValueError) as e:
         log(f"讀不到 {path}：{e}")
     env = {"MQTT_HOST": "mqtt_host", "MQTT_PORT": "mqtt_port", "MQTT_USER": "mqtt_user",
-           "MQTT_PASSWORD": "mqtt_password", "DEVICE": "device", "PORT": "port"}
+           "MQTT_PASSWORD": "mqtt_password", "DEVICE": "device", "PORT": "port", "PUBLIC_PHOTO": "public_photo"}
     for e, k in env.items():
         if os.environ.get(e):
             cfg[k] = os.environ[e]
@@ -99,6 +100,7 @@ def load_config():
             log(f"讀不到帳密檔 {sf}：{e}")
     cfg["mqtt_port"] = int(cfg["mqtt_port"])
     cfg["port"] = int(cfg["port"])
+    cfg["public_photo"] = str(cfg["public_photo"]).lower() not in ("0", "false", "no")
     return cfg
 
 
@@ -265,11 +267,11 @@ class Mqtt:
 # 資料中樞：最新狀態、歷史、事件，並推送給所有瀏覽器
 # ═══════════════════════════════════════════════════════════════════
 class Hub:
-    KINDS = ("sensor", "decision", "robot", "vision", "event", "ack")
-    PUBLIC_KINDS = ("sensor", "decision", "robot", "vision", "event")
+    KINDS = ("sensor", "decision", "robot", "vision", "photo", "event", "ack")
 
-    def __init__(self, device):
+    def __init__(self, device, public_photo=True):
         self.device = device
+        self.PUBLIC_KINDS = ("sensor", "decision", "robot", "vision", "event") + (("photo",) if public_photo else ())
         self.lock = threading.Lock()
         self.latest = {}
         self.hist = deque(maxlen=HISTORY_S)
@@ -336,8 +338,11 @@ class Hub:
             hist = [h for h in self.hist if h["t"] >= cutoff]
             hist = hist[::5] if len(hist) > 400 else hist
             events = [(k, e) for k, e in self.events if team or (k == "event" and e.get("public"))]
+            latest = dict(self.latest)
+            if not team and "photo" not in self.PUBLIC_KINDS:
+                latest.pop("photo", None)
             return {"now": time.time(), "device": self.device, "team": team,
-                    "latest": dict(self.latest), "hist": hist, "events": [e for _, e in events][-60:]}
+                    "latest": latest, "hist": hist, "events": [e for _, e in events][-60:]}
 
     def add_client(self, team):
         q = queue.Queue(maxsize=200)
@@ -617,6 +622,7 @@ def main():
     ap = argparse.ArgumentParser(description="廟公機器人監控網站")
     ap.add_argument("--host", default="0.0.0.0")
     ap.add_argument("--port", type=int)
+    ap.add_argument("--device", help="覆蓋設定檔的裝置代號（測試用）")
     a = ap.parse_args()
 
     try:
@@ -630,7 +636,9 @@ def main():
 
     cfg = load_config()
     port = a.port or cfg["port"]
-    hub = Hub(cfg["device"])
+    if a.device:
+        cfg["device"] = a.device
+    hub = Hub(cfg["device"], cfg["public_photo"])
     auth = Auth(os.path.join(DATA, "users.json"))
     dev = cfg["device"]
     mqtt = Mqtt(cfg["mqtt_host"], cfg["mqtt_port"], cfg["mqtt_user"], cfg["mqtt_password"],
