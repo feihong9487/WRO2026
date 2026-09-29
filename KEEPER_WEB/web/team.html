@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>廟公機器人團隊台</title>
+<meta name="description" content="廟公機器人團隊內部頁：遠端操控、系統狀態與完整事件紀錄。">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1d110d">
+<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=UoqMunThenKhung&display=swap">
+<link rel="stylesheet" href="/assets/css/temple.css">
+</head>
+<body class="team">
+<canvas id="smoke" aria-hidden="true"></canvas>
+<a class="skip" href="#main">跳到主要內容</a>
+<div class="page">
+  <header class="bar">
+    <div class="plaque">
+      <h1 data-t="title">廟公機器人</h1>
+      <p class="sub">團隊台</p>
+    </div>
+    <div class="bar-tools">
+      <span class="live" id="live" role="status" aria-live="polite">…</span>
+      <span class="who" id="who"></span>
+      <button class="icon-btn" id="logout" type="button">登出</button>
+      <button class="icon-btn" id="theme" type="button" aria-label="切換深色或淺色">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5a7.5 7.5 0 1 0 0 15z" fill="currentColor"/><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="deck" aria-label="操控台">
+      <div class="deck-card">
+        <h2>機器人任務</h2>
+        <div class="btn-row">
+          <button class="btn primary" type="button" data-cmd="RUN MORNING" data-need="idle">早上任務</button>
+          <button class="btn primary" type="button" data-cmd="RUN EVENING" data-need="idle">晚上任務</button>
+        </div>
+        <div class="btn-row" aria-label="單段測試">
+          <button class="btn" type="button" data-cmd="RUN A" data-need="idle">A 充電座→供桌</button>
+          <button class="btn" type="button" data-cmd="RUN B" data-need="idle">B 供桌→香爐</button>
+          <button class="btn" type="button" data-cmd="RUN C" data-need="idle">C 香爐→供桌</button>
+          <button class="btn" type="button" data-cmd="RUN D" data-need="idle">D 供桌→倒灰區</button>
+          <button class="btn" type="button" data-cmd="RUN E" data-need="idle">E 倒灰區→充電座</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" type="button" data-cmd="GO" data-need="station">繼續下一段</button>
+          <button class="btn" type="button" data-cmd="END" data-need="station">結束任務</button>
+          <button class="btn" type="button" data-cmd="CLEAR" data-need="fail">清除失敗</button>
+        </div>
+        <p class="why" id="why"></p>
+      </div>
+      <div class="deck-card">
+        <h2>系統狀態</h2>
+        <dl class="health" id="health"></dl>
+      </div>
+      <div class="deck-card">
+        <h2>集煙風扇</h2>
+        <div class="btn-row">
+          <button class="btn" type="button" data-cmd="AUTO" data-need="online">交給自動決策</button>
+        </div>
+        <div class="fan-ctl">
+          <label for="fan-range">手動轉速</label>
+          <output id="fan-out" for="fan-range">40%</output>
+          <input id="fan-range" type="range" min="0" max="100" step="5" value="40">
+          <button class="btn" type="button" id="fan-apply" data-need="online">套用</button>
+        </div>
+        <p class="why">R4 的安全聯鎖與 CO2 警報永遠優先於手動轉速。</p>
+        <button class="estop estop-inline" type="button" data-stop>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 2h9L22 7.5v9L16.5 22h-9L2 16.5v-9z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8h8v8H8z" fill="currentColor"/></svg>
+          緊急停止
+        </button>
+      </div>
+    </section>
+    <section class="hall" aria-label="機器人現況">
+      <div class="couplets">
+        <aside class="couplet left" id="c-air">
+          <span class="label" data-t="air">空氣</span>
+          <span class="value"><span id="co2">--</span><small>ppm CO2</small></span>
+          <span class="status" id="co2-status"></span>
+          <span class="note" id="co2-note"></span>
+        </aside>
+        <aside class="couplet right" id="c-fan">
+          <span class="label" data-t="fanL">集煙</span>
+          <span class="value"><span id="fan">--</span><small>%</small></span>
+          <span class="status" id="fan-status"></span>
+          <span class="note" id="fan-note"></span>
+        </aside>
+      </div>
+      <figure class="courtyard">
+        <div class="field-wrap">
+          <svg id="field" aria-labelledby="now"></svg>
+          <span class="map-note" data-t="mapNote">位置依路線表推算</span>
+        </div>
+        <figcaption>
+          <p class="now" id="now">…</p>
+          <p class="now-sub" id="now-sub"></p>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="eyes" aria-label="相機">
+      <article class="eye">
+        <div class="eye-head"><h2 data-t="eyeTable">供桌之眼</h2><span class="src" data-t="eyeTableSrc"></span></div>
+        <div class="lattice">
+          <canvas id="mv" width="320" height="240" aria-label="M-Vision 看到的供盤與供品位置"></canvas>
+          <div class="empty" id="mv-empty" data-t="mvEmpty"></div>
+        </div>
+        <div class="chips" id="mv-chips"></div>
+      </article>
+      <article class="eye">
+        <div class="eye-head"><h2 data-t="eyeAsh">香灰之眼</h2><span class="src" data-t="eyeAshSrc"></span></div>
+        <div class="lattice">
+          <canvas id="hl" width="320" height="240" aria-label="HuskyLens 看到的色條位置"></canvas>
+          <div class="empty" id="hl-empty" data-t="hlEmpty"></div>
+        </div>
+        <div class="chips" id="hl-chips"></div>
+      </article>
+      <article class="eye eye-ash">
+        <div class="eye-head"><h2 data-t="ashTitle">香灰高度</h2></div>
+        <div class="vessel-wrap">
+          <div class="vessel">
+            <svg viewBox="0 0 200 190" role="img" aria-labelledby="ash-num">
+              <defs>
+                <linearGradient id="ashGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#b9b2a8"/><stop offset="1" stop-color="#7c756d"/>
+                </linearGradient>
+                <clipPath id="bowl"><path d="M32 74 H168 Q163 150 100 158 Q37 150 32 74 Z"/></clipPath>
+              </defs>
+              <g id="sticks">
+                <line class="stick" x1="84" y1="150" x2="78" y2="18"/>
+                <line class="stick" x1="100" y1="150" x2="100" y2="10"/>
+                <line class="stick" x1="116" y1="150" x2="122" y2="18"/>
+                <circle class="ember" cx="78" cy="18" r="3.5"/><circle class="ember" cx="100" cy="10" r="3.5"/><circle class="ember" cx="122" cy="18" r="3.5"/>
+              </g>
+              <path class="body" d="M32 74 H168 Q163 150 100 158 Q37 150 32 74 Z"/>
+              <rect class="ash" id="ash-fill" x="20" y="158" width="160" height="0" clip-path="url(#bowl)"/>
+              <path class="rim" d="M24 74 H176 M32 84 Q18 84 20 66 M168 84 Q182 84 180 66 M64 154 L56 182 M136 154 L144 182 M100 158 V182"/>
+            </svg>
+          </div>
+          <div>
+            <p class="ash-num" id="ash-num">--<small>%</small></p>
+            <p class="ash-text" id="ash-text"></p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="record">
+      <div>
+        <div class="panel-head"><h2 data-t="co2Title">空氣中的 CO2，近 30 分鐘</h2><span class="hint" data-t="co2Hint"></span></div>
+        <div class="chart" id="co2-chart">
+          <canvas></canvas>
+          <div class="chart-empty" hidden></div>
+          <div class="tip" hidden></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-head"><h2>事件紀錄</h2><span class="hint">R4、筆電中繼與遠端指令</span></div>
+        <div class="log-box"><ol class="slips log" id="slips"></ol></div>
+      </div>
+    </section>
+
+    <section class="record">
+      <div>
+        <div class="panel-head"><h2>三顆溫度計，近 30 分鐘</h2><span class="hint">SCD41、SHT31、DS18B20 交叉比對</span></div>
+        <div class="chart" id="temp-chart">
+          <canvas></canvas>
+          <div class="chart-empty" hidden></div>
+          <div class="tip" hidden></div>
+        </div>
+        <div class="legend" id="temp-legend"></div>
+      </div>
+      <div>
+        <div class="panel-head"><h2>集煙風扇轉速，近 30 分鐘</h2><span class="hint">R4 實際輸出</span></div>
+        <div class="chart" id="fan-chart">
+          <canvas></canvas>
+          <div class="chart-empty" hidden></div>
+          <div class="tip" hidden></div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p data-t="foot1"></p>
+      <p data-t="foot2"></p>
+    </footer>
+  </main>
+</div>
+<div class="estop-dock">
+  <button class="estop" type="button" data-stop>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 2h9L22 7.5v9L16.5 22h-9L2 16.5v-9z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 8h8v8H8z" fill="currentColor"/></svg>
+    緊急停止
+  </button>
+</div>
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+<dialog class="confirm" id="confirm" aria-labelledby="confirm-title">
+  <form method="dialog">
+    <h2 id="confirm-title"></h2>
+    <p id="confirm-text"></p>
+    <div class="btn-row">
+      <button class="btn" value="cancel" type="submit">取消</button>
+      <button class="btn primary" value="ok" type="submit" id="confirm-ok"></button>
+    </div>
+  </form>
+</dialog>
+<script type="module" src="/assets/js/team.js"></script>
+</body>
+</html>

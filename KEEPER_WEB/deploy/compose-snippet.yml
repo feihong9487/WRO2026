@@ -1,0 +1,18 @@
+# 貼到桌機 docker-compose.yml 的 services: 底下（和 grafana、ai-online 同一層）
+# keeper_web/ 是這個 KEEPER_WEB 資料夾（不含 data/），keeper_web_data/ 放帳號與密碼設定
+  keeper-web:
+    image: python:3.12-alpine          # 和 ai-online 同一個映像檔，不用另外下載
+    container_name: keeper-web
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    environment:
+      - PYTHONUNBUFFERED=1
+      - MQTT_HOST=mosquitto
+      - DATA_DIR=/data
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./keeper_web:/app:ro
+      - ./keeper_web_data:/data
+    command: python /app/server.py

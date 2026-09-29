@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>團隊登入</title>
+<meta name="description" content="廟公機器人團隊台登入。">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1d110d">
+<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=UoqMunThenKhung&display=swap">
+<link rel="stylesheet" href="/assets/css/temple.css">
+</head>
+<body>
+<canvas id="smoke" aria-hidden="true"></canvas>
+<main class="login">
+  <div class="login-card">
+    <div class="plaque"><h1>廟公機器人</h1><p class="sub">團隊台</p></div>
+    <form class="login-form" id="form" novalidate>
+      <div class="field">
+        <label for="user">帳號</label>
+        <input id="user" name="username" autocomplete="username" autocapitalize="off" spellcheck="false" required aria-describedby="user-err">
+        <p class="err" id="user-err" role="alert"></p>
+      </div>
+      <div class="field">
+        <label for="pw">密碼</label>
+        <div class="pw-wrap">
+          <input id="pw" name="password" type="password" autocomplete="current-password" required aria-describedby="pw-err">
+          <button type="button" id="pw-toggle" aria-controls="pw" aria-pressed="false">顯示</button>
+        </div>
+        <p class="err" id="pw-err" role="alert"></p>
+      </div>
+      <button class="btn primary" type="submit" id="submit">登入團隊台</button>
+    </form>
+    <p class="login-note">只是想看展示？<a href="/">回到公開展示頁</a></p>
+  </div>
+</main>
+<script type="module" src="/assets/js/login.js"></script>
+</body>
+</html>
