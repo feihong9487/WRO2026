@@ -60,7 +60,7 @@ CMD_PATTERN = re.compile(r"^(STOP|GO|END|CLEAR|AUTO|RUN (MORNING|EVENING|[A-E])|
 # 公開頁只顯示這些開頭的機器人紀錄（到站、任務進度），其餘除錯訊息只給團隊看
 PUBLIC_EVENT_PREFIX = ("開始任務", "遠端開始任務", "已到站", "任務完成", "香爐站", "供桌站", "倒灰站",
                        "充電座", "任務失敗", "任務由")
-SENSOR_HIST_KEYS = ("co2", "co2_base", "t_scd", "t_sht", "t_ds", "rh_sht", "ash_pct")
+SENSOR_HIST_KEYS = ("co2", "co2_base", "t_scd", "t_sht", "rh_sht", "ash_pct")
 
 
 def now_iso():

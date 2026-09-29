@@ -81,7 +81,7 @@ CLOUD_MAX_AGE_S = 10      # 雲端斷線時暫存的資料，超過這麼久就�
 VISION_MAX_AGE_S = 1
 
 # 原 Pi 轉發的感測欄位
-SENSOR_KEYS = ("ts", "co2", "slope", "t_scd", "rh_scd", "t_sht", "rh_sht", "t_ds", "conf", "alarm")
+SENSOR_KEYS = ("ts", "co2", "slope", "t_scd", "rh_scd", "t_sht", "rh_sht", "conf", "alarm")
 # 原 Pi 漏送、這版補上的 R4 欄位
 EXTRA_KEYS = ("co2_base", "fan_rpm", "tc_fault", "sensor_fault")
 # 機器人的數值欄位。ash_pct = -1、batt = -99.9 表示沒有資料，就不送

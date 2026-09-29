@@ -3,8 +3,8 @@
   =============================================================================
   一塊 R4 控制全部：
     底盤循線（STM32 副處理器驅動 M3、M4）
-    手臂與夾爪（RC 伺服；尚未製作，已留接口）
-    空氣感測（SCD41、SHT31、DS18B20）與熱電偶安全聯鎖、集煙風扇
+    手臂與夾爪（RC1 夾爪上下、RC2 抹平香灰、RC3 灰盤、RC4 抽風；DC1/DC2 夾爪馬達）
+    空氣感測（SCD41、SHT31）與熱電偶安全聯鎖、集煙風扇
     兩顆相機：HuskyLens 看香灰高度、M-Vision 看供品與供盤
     WiFi 把資料送到筆電中繼，再上雲到桌機儀表板
 
@@ -44,6 +44,8 @@
     GO           到站後繼續下一段（等同下鍵）
     END          到站後結束任務（等同上鍵）
     CLEAR        從失敗狀態回到待命
+    ARM <動作>   手臂測試（只在靜止時）：GRIP_UP、GRIP_DOWN、LEVEL、DUMP、HOOD_ON、HOOD_OFF、
+                 GRIP_CLOSE、GRIP_OPEN、GRIP_STOP、HOME。角度與力道在 config.h
   ⚠ PING 會讓 R4 進入 PI 模式並採用最後一次的 FAN 值。
     中繼程式如果沒有在跑風扇決策，就不要送 PING，否則風扇會停在 0。
 
@@ -120,8 +122,8 @@ void muxSelect(uint8_t ch) {
 SCD4x          scd41;
 Adafruit_SHT31 sht31 = Adafruit_SHT31(&Wire1);
 uint16_t co2 = 0;
-float    tScd = NAN, rhScd = NAN, tSht = NAN, rhSht = NAN, tDs = NAN;
-bool     dsOk = false, scdOk = false, shtOk = false;
+float    tScd = NAN, rhScd = NAN, tSht = NAN, rhSht = NAN;
+bool     scdOk = false, shtOk = false;
 float    slopePpmMin = 0.0f, conf = 0.5f;
 bool     co2Alarm = false, sensorFault = false;
 
@@ -211,11 +213,11 @@ Station curStation = ST_NONE;
 // ---- 介面 ----
 enum MenuId : uint8_t {
   MENU_MORNING, MENU_EVENING, MENU_A, MENU_B, MENU_C, MENU_D, MENU_E,
-  MENU_LINEVIEW, MENU_LINECAL, MENU_ASH_EMPTY, MENU_ASH_FULL, MENU_NETINFO, MENU_COUNT
+  MENU_LINEVIEW, MENU_LINECAL, MENU_ASH_EMPTY, MENU_ASH_FULL, MENU_ARMTEST, MENU_NETINFO, MENU_COUNT
 };
 const char* const MENU_NAME[MENU_COUNT] = {
   "MORNING A+B", "EVENING C+D+E", "A dock>table", "B table>burner", "C burner>table",
-  "D table>ash", "E ash>dock", "LINE VIEW", "LINE CAL", "ASH SET EMPTY", "ASH SET FULL", "NET INFO"
+  "D table>ash", "E ash>dock", "LINE VIEW", "LINE CAL", "ASH SET EMPTY", "ASH SET FULL", "ARM TEST", "NET INFO"
 };
 uint8_t menuSel = MENU_MORNING;
 bool    upPrev = false, downPrev = false;
@@ -785,6 +787,111 @@ void serviceSnapshot() {}
 #endif
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 手臂、夾爪、抽風（RC1 夾爪上下、RC2 抹平香灰、RC3 灰盤、RC4 抽風；DC1/DC2 夾爪）
+// 角度都在 config.h。動作只在車子靜止時接受；等伺服轉到位時安全檢查與風扇照常運作
+// ═══════════════════════════════════════════════════════════════════════════
+int  servoNow[4] = { -1, -1, -1, -1 };
+bool armBusy = false, armAbort = false;
+unsigned long hoodManualUntil = 0;
+
+void setServo(uint8_t i, int angle) {
+  if (i > 3 || angle < 0 || angle > 180 || servoNow[i] == angle) return;
+  switch (i) {
+    case 0: MiniR4.RC1.setAngle(angle); break;
+    case 1: MiniR4.RC2.setAngle(angle); break;
+    case 2: MiniR4.RC3.setAngle(angle); break;
+    case 3: MiniR4.RC4.setAngle(angle); break;
+  }
+  servoNow[i] = angle;
+}
+
+// 夾爪：正值夾緊、負值放開、0 停止
+void gripPower(int p) {
+  MiniR4.M1.setPower(GRIP_R_REVERSE ? -p : p);   // DC1 夾爪右
+  MiniR4.M2.setPower(GRIP_L_REVERSE ? -p : p);   // DC2 夾爪左
+}
+
+void serviceSafety();
+void serviceAir();
+void serviceFan();
+void serviceMVision();
+void serviceNet();
+void serviceUsbRx();
+
+// 等待期間照常跑安全、空氣、風扇、相機與網路，不讓整台機器停下來。回傳 false = 被 STOP 中止
+bool armWait(uint16_t ms) {
+  unsigned long t0 = millis();
+  while (millis() - t0 < ms) {
+    serviceUsbRx(); serviceSafety(); serviceAir(); serviceFan(); serviceMVision(); serviceNet();
+    if (armAbort) return false;          // 手臂動作中收到的 ARM 指令會因 armBusy 被拒，只有 STOP 會生效
+    delay(5);
+  }
+  return true;
+}
+
+void armHome() {
+  gripPower(0);
+  for (uint8_t i = 0; i < 4; i++) if (SERVO_HOME[i] >= 0) setServo(i, SERVO_HOME[i]);
+}
+
+// 執行一個手臂動作。回傳 nullptr = 成功，否則是失敗原因
+const char* armAction(const char* name) {
+  if (motionBusy()) return "車子在移動，手臂動作只在靜止時執行";
+  if (armBusy)      return "上一個手臂動作還沒做完";
+  armBusy = true; armAbort = false;
+  const char* why = nullptr;
+  if      (!strcmp(name, "GRIP_UP"))    setServo(0, RC_GRIP_UP);
+  else if (!strcmp(name, "GRIP_DOWN"))  setServo(0, RC_GRIP_DOWN);
+  else if (!strcmp(name, "LEVEL")) {                     // 抹一次就收回
+    setServo(1, RC_LEVEL_SWEEP);
+    if (armWait(SERVO_SETTLE_MS)) setServo(1, RC_LEVEL_HOME);
+  }
+  else if (!strcmp(name, "DUMP")) {                      // 倒灰後放平
+    setServo(2, RC_TRAY_DUMP);
+    if (armWait(SERVO_SETTLE_MS * 2)) setServo(2, RC_TRAY_HOME);
+  }
+  else if (!strcmp(name, "HOOD_ON"))  { setServo(3, RC_HOOD_ON);  hoodManualUntil = millis() + 10000; }
+  else if (!strcmp(name, "HOOD_OFF")) { setServo(3, RC_HOOD_OFF); hoodManualUntil = millis() + 10000; }
+  else if (!strcmp(name, "GRIP_CLOSE")) {
+    gripPower(GRIP_POWER);
+    if (armWait(GRIP_MOVE_MS)) gripPower(GRIP_HOLD_POWER); else gripPower(0);
+  }
+  else if (!strcmp(name, "GRIP_OPEN")) {
+    gripPower(-GRIP_POWER);
+    armWait(GRIP_MOVE_MS);
+    gripPower(0);
+  }
+  else if (!strcmp(name, "GRIP_STOP")) gripPower(0);
+  else if (!strcmp(name, "HOME"))      armHome();
+  else why = "沒有這個手臂動作";
+  if (armAbort) { gripPower(0); why = "被 STOP 中止"; }
+  armBusy = false;
+  return why;
+}
+
+// 選單「ARM TEST」：每個動作做一次，方便確認角度與方向
+void armTest() {
+  static const char* const SEQ[] = { "GRIP_DOWN", "GRIP_UP", "LEVEL", "DUMP", "HOOD_ON", "HOOD_OFF",
+                                     "GRIP_CLOSE", "GRIP_OPEN", "HOME" };
+  logMsg(F("手臂測試開始：夾爪下、上，抹平，倒灰，抽風開、關，夾爪夾、放"));
+  for (uint8_t i = 0; i < sizeof(SEQ) / sizeof(SEQ[0]); i++) {
+    const char* why = armAction(SEQ[i]);
+    logMsg(String("手臂 ") + SEQ[i] + (why ? String("：") + why : String("")));
+    if (why || !armWait(SERVO_SETTLE_MS)) break;
+  }
+  armHome();
+  logMsg(F("手臂測試結束"));
+}
+
+// RC4 抽風跟著風扇：風扇在轉而且車子靜止就打開；手動指令後 10 秒內不自動改
+void serviceHood() {
+#if HOOD_FOLLOWS_FAN
+  if (armBusy || millis() < hoodManualUntil) return;
+  setServo(3, (!motionBusy() && outDuty > 0) ? RC_HOOD_ON : RC_HOOD_OFF);
+#endif
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 指令（USB 與 WiFi 共用，與原 Pi 協定相容）
 // ═══════════════════════════════════════════════════════════════════════════
 void abortMission(const char* why);
@@ -827,8 +934,12 @@ void handleLine(char* s) {
   } else if (strcmp(s, "PING") == 0) {
     lastPiCmd = millis(); piSeen = true;
   } else if (strcmp(s, "STOP") == 0) {
+    armAbort = true; gripPower(0);
     abortMission("收到遠端 STOP");
     sendAck(s, true, "已停車");
+  } else if (strncmp(s, "ARM ", 4) == 0) {
+    const char* why = armAction(s + 4);
+    sendAck(s, why == nullptr, why ? why : "完成");
 #if REMOTE_CONTROL
   } else if (strncmp(s, "RUN ", 4) == 0) {
     remoteRun(s, s + 4);
@@ -897,7 +1008,6 @@ void sendTelemetry() {
   lb.print(F(",\"rh_scd\":"));        lb.print(j(rhScd), 1);
   lb.print(F(",\"t_sht\":"));         lb.print(j(tSht), 2);
   lb.print(F(",\"rh_sht\":"));        lb.print(j(rhSht), 1);
-  lb.print(F(",\"t_ds\":"));          lb.print(dsOk ? j(tDs) : -99.9f, 2);
   lb.print(F(",\"conf\":"));          lb.print(conf, 1);
   lb.print(F(",\"alarm\":"));         lb.print(co2Alarm ? 1 : 0);
   lb.print(F(",\"t_furnace\":"));     lb.print(tcFault ? -99.9f : j(tempC), 2);
@@ -961,7 +1071,7 @@ void sendVision() {
 #endif
 }
 
-// 每秒：風扇轉速、DS18B20、電池、遙測
+// 每秒：風扇轉速、電池、遙測
 void serviceTick() {
   uint32_t now = millis();
   if (now - lastTick < TICK_MS) return;
@@ -974,10 +1084,6 @@ void serviceTick() {
   interrupts();
   fanRpm = (dt > 0) ? (uint16_t)((uint32_t)pulses * 30000UL / dt) : 0;
 
-  // DS18B20 非同步：收上一輪發起的轉換，再發起下一輪
-  dsOk = MiniR4.A2.MXOnewireDT.readTemp();
-  if (dsOk) tDs = MiniR4.A2.MXOnewireDT.getTemp();
-  MiniR4.A2.MXOnewireDT.requestTemp();
 
   battV = MiniR4.PWR.getBattVoltage();
   if (netState == NET_ONLINE) wifiRssi = WiFi.RSSI();
@@ -1337,6 +1443,7 @@ void runMenu(uint8_t i) {
     case MENU_LINECAL:   startLineCal(); break;
     case MENU_ASH_EMPTY: ashSet(true); break;
     case MENU_ASH_FULL:  ashSet(false); break;
+    case MENU_ARMTEST:   armTest(); break;
     case MENU_NETINFO:   showNetInfo(); break;
   }
 }
@@ -1435,10 +1542,7 @@ void setup() {
 
   if (FLIP_FRONT) MiniR4.DriveDC.begin(4, 3, false, true);
   else            MiniR4.DriveDC.begin(3, 4, false, true);
-  if (SERVO_HOME[0] >= 0) MiniR4.RC1.setAngle(SERVO_HOME[0]);
-  if (SERVO_HOME[1] >= 0) MiniR4.RC2.setAngle(SERVO_HOME[1]);
-  if (SERVO_HOME[2] >= 0) MiniR4.RC3.setAngle(SERVO_HOME[2]);
-  if (SERVO_HOME[3] >= 0) MiniR4.RC4.setAngle(SERVO_HOME[3]);
+  armHome();                  // 夾爪抬起、抹平臂收回、灰盤放平、不抽風
 
   // 循線感測器：A3 埠（Wire）
   MiniR4.I2C0.MXLineTracer.begin();
@@ -1455,7 +1559,6 @@ void setup() {
 #if USE_PCF8574
   pcfWrite(0);
 #endif
-  MiniR4.A2.MXOnewireDT.requestTemp();
 
   Serial.print(F("# SCD41:")); Serial.print(scdOk ? F("OK") : F("FAIL"));
   Serial.print(F("  SHT31:")); Serial.println(shtOk ? F("OK") : F("FAIL"));
@@ -1496,10 +1599,11 @@ void loop() {
   serviceSafety();      // 熱電偶與聯鎖（最優先）
   serviceAir();         // CO2、溫濕度
   serviceFan();         // 風扇優先權解算
+  serviceHood();        // RC4 抽風跟著風扇
   serviceMVision();     // 相機封包（每圈都收，避免緩衝區滿）
   tickMotion();         // 循線狀態機
   serviceHusky();       // 香灰（5 Hz）
-  serviceTick();        // 每秒：轉速、DS18B20、電池、遙測
+  serviceTick();        // 每秒：轉速、電池、遙測
   serviceVisionSend();  // 相機結果（5 Hz）
   serviceNet();         // WiFi 中繼
   serviceSnapshot();    // M-Vision 照片（靜止時每 2 秒一張）
