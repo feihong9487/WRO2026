@@ -28,13 +28,32 @@ const int PIN_TC_SO    = 10;   // D4 埠右：MAX6675 SO
 const int PIN_TC_CS    = 2;    // D1 埠右：MAX6675 CS
 const int PIN_FAN      = 3;    // D1 埠左：四線風扇的 PWM 控制線
 const int PIN_FAN_TACH = A0;   // A1 埠右：風扇轉速回授。A1 埠的 5V 恆定供電給風扇，不可斬波
-// DS18B20 接 A2 埠；M-Vision 接 UART 埠（Serial1）。
+// M-Vision 接 UART 埠（Serial1）。A2 埠目前空著（原本的 DS18B20 已拿掉）。
 // ⚠ 不要開 Serial2：它是主晶片通往 ESP32-S3 無線晶片的內部線路。
 
 // ═══════════════════════ 底盤與手臂 ═══════════════════════
-const bool FLIP_FRONT    = true;    // 沿用 ROUTE_FOLLOW：true = 左馬達 M4、右馬達 M3
+// 直流馬達：DC1 夾爪右、DC2 夾爪左、DC3 底盤右、DC4 底盤左
+const bool FLIP_FRONT    = true;    // 沿用 ROUTE_FOLLOW：true = 左馬達 M4、右馬達 M3（與上面的分配相同）
 const bool REVERSE_STEER = false;   // 感測器左右與車子相反時改 true
-const int  SERVO_HOME[4] = { 0, 0, 0, 0 };   // RC1~RC4 開機姿勢（度），-1 = 開機不動它
+
+// 伺服角度（度）
+const int RC_GRIP_UP   = 110, RC_GRIP_DOWN   = 15;   // RC1 夾爪上下
+const int RC_LEVEL_HOME = 0,  RC_LEVEL_SWEEP = 60;   // RC2 抹平香灰
+const int RC_TRAY_HOME = 10,  RC_TRAY_DUMP   = 45;   // RC3 裝香灰的盤
+const int RC_HOOD_OFF  = 0,   RC_HOOD_ON     = 60;   // RC4 抽風：不抽 0 度、抽 60 度
+// 開機姿勢：夾爪抬起、抹平臂收回、灰盤放平、不抽風。-1 = 開機不動它
+const int  SERVO_HOME[4] = { RC_GRIP_UP, RC_LEVEL_HOME, RC_TRAY_HOME, RC_HOOD_OFF };
+const uint16_t SERVO_SETTLE_MS = 600;   // 伺服轉到位的等待時間
+
+// 夾爪直流馬達（DC1 右、DC2 左）。兩顆面對面裝，通常一顆要反轉；方向不對就改 REVERSE
+const int  GRIP_POWER        = 40;      // 夾緊／放開的力道（-100~100）
+const int  GRIP_HOLD_POWER   = 15;      // 夾住後維持的力道，0 = 不維持
+const bool GRIP_R_REVERSE    = true;      // 2026-09-29 實測：原本夾放顛倒，兩顆都對調
+const bool GRIP_L_REVERSE    = false;
+const uint16_t GRIP_MOVE_MS  = 700;     // 夾緊或放開要轉多久
+
+// RC4 抽風跟著風扇：風扇在轉就轉到 60 度、停了回 0 度。行進中一律收回，避免撞到東西
+#define HOOD_FOLLOWS_FAN 1
 
 // ═══════════════════════ 循線（沿用 ROUTE_FOLLOW 調好的值）═══════════════════════
 const int   BASE_SPEED   = 40;
@@ -87,7 +106,7 @@ const uint8_t  FAN_MAX_DUTY = 255;
 const float    ASH_COOL_C = 50.0;
 
 // ═══════════════════════ 週期 ═══════════════════════
-const uint32_t TICK_MS         = 1000;   // 遙測與 DS18B20
+const uint32_t TICK_MS         = 1000;   // 遙測
 const uint32_t TC_READ_MS      = 500;    // MAX6675 轉換最長 220 ms
 const uint32_t SCD_POLL_MS     = 1000;   // SCD41 自己約 5 秒才更新一筆
 const uint32_t SHT_POLL_MS     = 1000;   // SHT31 每次量測約卡 20 ms，所以限 1 Hz

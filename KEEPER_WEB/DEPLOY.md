@@ -47,7 +47,7 @@ docker compose logs -f keeper-web
 
 ## 5. 建立團隊帳號
 
-每個隊員一個帳號，密碼至少 10 個字，輸入時畫面不會顯示：
+每個隊員一個帳號，密碼不限字數（不能空白），輸入時畫面不會顯示：
 
 ```bash
 docker compose exec keeper-web python /app/manage_users.py add 帳號名稱

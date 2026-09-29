@@ -4,7 +4,7 @@
 
 export const store = {
   latest: {},          // sensor / decision / robot / vision 最新一筆（含 _t 伺服器時間）
-  hist: [],            // {t, co2, co2_base, t_scd, t_sht, t_ds, rh_sht, ash_pct, fan}
+  hist: [],            // {t, co2, co2_base, t_scd, t_sht, rh_sht, ash_pct, fan}
   events: [],          // 事件與指令回覆，新的在後
   offset: 0,           // 伺服器時間 − 本機時間（秒）
   connected: false,
@@ -71,7 +71,7 @@ function pushHist(o) {
   const last = store.hist[store.hist.length - 1];
   if (last && o._t - last.t < 1) return;
   const row = { t: o._t };
-  for (const k of ["co2", "co2_base", "t_scd", "t_sht", "t_ds", "rh_sht", "ash_pct"]) {
+  for (const k of ["co2", "co2_base", "t_scd", "t_sht", "rh_sht", "ash_pct"]) {
     const v = o[k];
     if (typeof v === "number" && v > -99 && !(k === "ash_pct" && v < 0)) row[k] = v;
   }

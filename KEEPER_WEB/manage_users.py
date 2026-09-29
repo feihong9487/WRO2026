@@ -61,9 +61,9 @@ def main():
         save(d)
         print(f"已刪除 {name}")
         return
-    pw = getpass.getpass(f"{name} 的密碼（至少 10 個字）：")
-    if len(pw) < 10:
-        print("密碼太短，至少要 10 個字")
+    pw = getpass.getpass(f"{name} 的密碼：")
+    if not pw:
+        print("密碼不能空白")
         sys.exit(1)
     if getpass.getpass("再輸入一次：") != pw:
         print("兩次輸入的密碼不一樣")

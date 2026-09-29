@@ -17,11 +17,10 @@ const tempChart = createChart($("#temp-chart"), {
   series: [
     { key: "t_scd", color: "--s1", label: "SCD41" },
     { key: "t_sht", color: "--s2", label: "SHT31" },
-    { key: "t_ds", color: "--s3", label: "DS18B20" },
   ],
   unit: "°C", digits: 1, empty: "還沒有溫度資料",
 });
-$("#temp-legend").innerHTML = [["--s1", "SCD41"], ["--s2", "SHT31"], ["--s3", "DS18B20"]]
+$("#temp-legend").innerHTML = [["--s1", "SCD41"], ["--s2", "SHT31"]]
   .map(([c, n]) => `<span><i style="background:var(${c})"></i>${n}</span>`).join("");
 const fanChart = createChart($("#fan-chart"), {
   series: [{ key: "fanp", color: "--gold-2", label: "風扇" }], unit: "%", empty: "還沒有風扇資料",
