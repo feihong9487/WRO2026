@@ -1,0 +1,3 @@
+# 內含桌機 MQTT 密碼，不可上傳
+relay_secrets.json
+logs/

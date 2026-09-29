@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>廟公機器人</title>
+<meta name="description" content="WRO 2026 廟公機器人的即時展示：空氣品質、兩顆相機看到的供品與香灰，以及機器人在場地上的位置。">
+<meta name="theme-color" content="#1d110d">
+<link rel="icon" href="/assets/img/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=UoqMunThenKhung&display=swap">
+<link rel="stylesheet" href="/assets/css/temple.css">
+</head>
+<body>
+<canvas id="smoke" aria-hidden="true"></canvas>
+<a class="skip" href="#main">跳到主要內容</a>
+<div class="page">
+  <header class="bar">
+    <div class="plaque">
+      <h1 data-t="title">廟公機器人</h1>
+      <p class="sub" data-t="sub">WRO 2026 未來創新組，守護香火的巡廟機器人</p>
+    </div>
+    <div class="bar-tools">
+      <span class="live" id="live" role="status" aria-live="polite">…</span>
+      <button class="icon-btn" id="lang" type="button" aria-label="Switch to English">EN</button>
+      <button class="icon-btn" id="theme" type="button" aria-label="切換深色或淺色">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5a7.5 7.5 0 1 0 0 15z" fill="currentColor"/><circle cx="10" cy="10" r="7.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hall" aria-label="機器人現況">
+      <div class="couplets">
+        <aside class="couplet left" id="c-air">
+          <span class="label" data-t="air">空氣</span>
+          <span class="value"><span id="co2">--</span><small>ppm CO2</small></span>
+          <span class="status" id="co2-status"></span>
+          <span class="note" id="co2-note"></span>
+        </aside>
+        <aside class="couplet right" id="c-fan">
+          <span class="label" data-t="fanL">集煙</span>
+          <span class="value"><span id="fan">--</span><small>%</small></span>
+          <span class="status" id="fan-status"></span>
+          <span class="note" id="fan-note"></span>
+        </aside>
+      </div>
+      <figure class="courtyard">
+        <div class="field-wrap">
+          <svg id="field" aria-labelledby="now"></svg>
+          <span class="map-note" data-t="mapNote">位置依路線表推算</span>
+        </div>
+        <figcaption>
+          <p class="now" id="now">…</p>
+          <p class="now-sub" id="now-sub"></p>
+        </figcaption>
+      </figure>
+    </section>
+
+    <section class="eyes" aria-label="相機">
+      <article class="eye">
+        <div class="eye-head"><h2 data-t="eyeTable">供桌之眼</h2><span class="src" data-t="eyeTableSrc"></span></div>
+        <div class="lattice">
+          <canvas id="mv" width="320" height="240" aria-label="M-Vision 看到的供盤與供品位置"></canvas>
+          <div class="empty" id="mv-empty" data-t="mvEmpty"></div>
+        </div>
+        <div class="chips" id="mv-chips"></div>
+      </article>
+      <article class="eye">
+        <div class="eye-head"><h2 data-t="eyeAsh">香灰之眼</h2><span class="src" data-t="eyeAshSrc"></span></div>
+        <div class="lattice">
+          <canvas id="hl" width="320" height="240" aria-label="HuskyLens 看到的色條位置"></canvas>
+          <div class="empty" id="hl-empty" data-t="hlEmpty"></div>
+        </div>
+        <div class="chips" id="hl-chips"></div>
+      </article>
+      <article class="eye eye-ash">
+        <div class="eye-head"><h2 data-t="ashTitle">香灰高度</h2></div>
+        <div class="vessel-wrap">
+          <div class="vessel">
+            <svg viewBox="0 0 200 190" role="img" aria-labelledby="ash-num">
+              <defs>
+                <linearGradient id="ashGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#b9b2a8"/><stop offset="1" stop-color="#7c756d"/>
+                </linearGradient>
+                <clipPath id="bowl"><path d="M32 74 H168 Q163 150 100 158 Q37 150 32 74 Z"/></clipPath>
+              </defs>
+              <g id="sticks">
+                <line class="stick" x1="84" y1="150" x2="78" y2="18"/>
+                <line class="stick" x1="100" y1="150" x2="100" y2="10"/>
+                <line class="stick" x1="116" y1="150" x2="122" y2="18"/>
+                <circle class="ember" cx="78" cy="18" r="3.5"/><circle class="ember" cx="100" cy="10" r="3.5"/><circle class="ember" cx="122" cy="18" r="3.5"/>
+              </g>
+              <path class="body" d="M32 74 H168 Q163 150 100 158 Q37 150 32 74 Z"/>
+              <rect class="ash" id="ash-fill" x="20" y="158" width="160" height="0" clip-path="url(#bowl)"/>
+              <path class="rim" d="M24 74 H176 M32 84 Q18 84 20 66 M168 84 Q182 84 180 66 M64 154 L56 182 M136 154 L144 182 M100 158 V182"/>
+            </svg>
+          </div>
+          <div>
+            <p class="ash-num" id="ash-num">--<small>%</small></p>
+            <p class="ash-text" id="ash-text"></p>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="record">
+      <div>
+        <div class="panel-head"><h2 data-t="co2Title">空氣中的 CO2，近 30 分鐘</h2><span class="hint" data-t="co2Hint"></span></div>
+        <div class="chart" id="co2-chart">
+          <canvas></canvas>
+          <div class="chart-empty" hidden></div>
+          <div class="tip" hidden></div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-head"><h2 data-t="storyTitle">今日紀事</h2></div>
+        <ol class="slips" id="slips" aria-live="polite"></ol>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <p data-t="foot1"></p>
+      <p data-t="foot2"></p>
+    </footer>
+  </main>
+</div>
+<script type="module" src="/assets/js/public.js"></script>
+</body>
+</html>
