@@ -423,8 +423,9 @@ void ashSave() {
   EEPROM.put(ASH_EEPROM_ADDR, ashCal);
 }
 
-// 最近幾筆色條高度的中位數；樣本不足一半回傳 -1
-int ashMedian() {
+// 最近幾筆量測值（ASH_MEASURE 選的框高度或中心 y）的去頭去尾平均（×10，保留一位小數）：排序後丟掉最高、最低各 1/4，剩下的取平均。
+// 比中位數細（可以算出 144.4），又不會被偶爾跳一下的框拉走。樣本不足一半回傳 -1
+int ashAvg10() {
   if (ashHistN < (ASH_SAMPLES + 1) / 2) return -1;
   int tmp[ASH_SAMPLES];
   for (uint8_t i = 0; i < ashHistN; i++) tmp[i] = ashHist[i];
@@ -433,16 +434,26 @@ int ashMedian() {
     while (j2 >= 0 && tmp[j2] > k) { tmp[j2 + 1] = tmp[j2]; j2--; }
     tmp[j2 + 1] = k;
   }
-  return tmp[ashHistN / 2];
+  uint8_t cut = ashHistN / 4;
+  long sum = 0;
+  for (uint8_t i = cut; i < ashHistN - cut; i++) sum += tmp[i];
+  uint8_t m = ashHistN - 2 * cut;
+  return (int)((sum * 10 + m / 2) / m);
 }
 
-// 換算成香灰百分比。span 可正可負，貼色條與直接學灰色兩種作法都適用
+// 四捨五入成整數像素，給校正存檔與遙測用
+int ashMedian() {
+  int a = ashAvg10();
+  return (a < 0) ? -1 : (a + 5) / 10;
+}
+
+// 換算成香灰百分比。span 可正可負，貼色條與直接學灰色兩種作法都適用。用小數像素算，% 才不會一格一格跳
 int ashPercent() {
-  int h = ashMedian();
-  if (ashCal.magic != ASH_EEPROM_MAGIC || h < 0) return -1;
+  int a = ashAvg10();
+  if (ashCal.magic != ASH_EEPROM_MAGIC || a < 0) return -1;
   int span = ashCal.hEmpty - ashCal.hFull;
   if (span == 0) return -1;
-  long p = (long)(ashCal.hEmpty - h) * 100 / span;
+  long p = ((long)ashCal.hEmpty * 10 - a) * 100 / ((long)span * 10);
   return (int)constrain(p, 0L, 100L);
 }
 
@@ -494,7 +505,13 @@ void serviceHusky() {
     }
   }
   hres.seen = true;
-  ashHist[ashHistI] = hres.h;
+#if ASH_MEASURE == 2
+  ashHist[ashHistI] = hres.y - hres.h / 2;   // 香灰框的上緣
+#elif ASH_MEASURE == 1
+  ashHist[ashHistI] = hres.y;   // 香灰表面在畫面裡的位置
+#else
+  ashHist[ashHistI] = hres.h;   // 色條露出來的高度
+#endif
   ashHistI = (ashHistI + 1) % ASH_SAMPLES;
   if (ashHistN < ASH_SAMPLES) ashHistN++;
 #endif
