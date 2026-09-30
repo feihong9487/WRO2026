@@ -18,7 +18,7 @@ const uint8_t MUX_ADDR = 0x70;
 const uint8_t CH_SCD41 = 0;          // I2C1：SCD41（CO2、溫濕度）
 const uint8_t CH_SHT31 = 1;          // I2C2：SHT31（溫濕度，雙感測交叉驗證）
 const uint8_t CH_PCF   = 2;          // I2C3：PCF8574 致動板（USE_PCF8574 才會用）
-#define HUSKY_I2C_PORT 3             // HuskyLens 接的 I2C 埠號 1~4。啟用 PCF8574 時要改接 4
+#define HUSKY_I2C_PORT 4             // HuskyLens 接的 I2C 埠號 1~4。2026-09-30 實測 I2C3 讀不到，改接 I2C4 才找到
 // 循線感測器固定接 A3 埠（I2C0，走 Wire）。原廠註明目前版本不支援多工器。
 
 // ═══════════════════════ 腳位 ═══════════════════════
@@ -118,9 +118,15 @@ const uint32_t BTN_POLL_MS     = 50;     // 按鍵經 STM32 讀取，限制頻�
 const long     MVISION_BAUD     = 115200;   // 要和 MVISION_OFFERING/main.py 一致
 const uint32_t MVISION_STALE_MS = 500;
 const uint8_t  ASH_COLOR_ID     = 1;        // HuskyLens 顏色辨識學到的色條 ID
-const uint8_t  ASH_SAMPLES      = 9;        // 香灰高度取中位數的樣本數
-const int      ASH_EEPROM_ADDR  = 0;        // 與 ASH_LEVEL 相同，校正值可以沿用
-const uint16_t ASH_EEPROM_MAGIC = 0xA51E;
+const uint8_t  ASH_SAMPLES      = 25;       // 香灰量測的樣本數（5 Hz，約 5 秒）。排序後去掉最高、最低各 1/4 再平均，可以算出小數像素
+// 香灰量用框的哪個值換算：0 = 框的高度（側面看色條，沿用 ASH_LEVEL）；
+// 1 = 框的中心 y（斜上方看香灰表面，灰少了表面往下沉）；
+// 2 = 框的上緣（中心 y − 高度/2）：灰多時框往上移又變高，兩個變化加在一起，差距最大。
+// 2026-09-30 實測（相機調整後）：中心 y 空滿差 10 像素，上緣約差 20 像素
+#define ASH_MEASURE 2
+const int      ASH_EEPROM_ADDR  = 0;        // 與 ASH_LEVEL 相同
+// 換了量法，舊的校正值單位不同，所以用不同的標記：換量法後要重新校正空爐和滿爐
+const uint16_t ASH_EEPROM_MAGIC = 0xA51E + ASH_MEASURE;   // 0 → 0xA51E（與 ASH_LEVEL 相同）、1 → 0xA51F、2 → 0xA520
 const unsigned long HUSKY_TIMEOUT_MS = 40;  // HuskyLens 回應逾時，程式庫預設 100 ms 太久
 
 // M-Vision 拍照回傳（給監控網站看真的畫面）。只在車子靜止、且已連上筆電中繼時才要照片，
